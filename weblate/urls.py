@@ -692,4 +692,5 @@ urlpatterns = patterns(
         'weblate.trans.views.basic.search',
         name="search"
     ),
+   url(r'', include('social.apps.django_app.urls', namespace='social')),
 )
