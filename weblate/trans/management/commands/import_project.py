@@ -87,7 +87,7 @@ class Command(BaseCommand):
         Returns file name from patch based on filemask.
         """
         matches = self.match_regexp.match(path)
-        return matches.group(1)
+        return '/'.join(matches.groups()) #matches.group(1)
 
     @property
     def match_regexp(self):
@@ -156,6 +156,8 @@ class Command(BaseCommand):
         repo = args[1]
         branch = args[2]
         self.filemask = args[3]
+        if args[3].startswith('/'):
+            self.filemask = args[3][1:]
         self.file_format = options['file_format']
         self.name_template = options['name_template']
         self.base_file_template = options['base_file_template']
@@ -198,7 +200,7 @@ class Command(BaseCommand):
         for match in matches:
             name = self.format_string(self.name_template, match)
             template = self.format_string(self.base_file_template, match)
-            slug = slugify(name)
+            slug = name.replace('/','_') #slugify(name)
             subprojects = SubProject.objects.filter(
                 Q(name=name) | Q(slug=slug),
                 project=project
@@ -210,7 +212,7 @@ class Command(BaseCommand):
                 )
                 continue
 
-            self.logger.info('Creating resource %s', name)
+            self.logger.info('Creating resource %s  %s', name, slug)
             SubProject.objects.create(
                 name=name,
                 slug=slug,
@@ -219,7 +221,7 @@ class Command(BaseCommand):
                 branch=branch,
                 template=template,
                 file_format=self.file_format,
-                filemask=self.filemask.replace('**', match)
+                filemask=self.filemask.replace('**/**', match).replace('**', match)
             )
 
     def import_initial(self, project, repo, branch):
