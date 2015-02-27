@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -32,6 +32,8 @@ class Command(BaseCommand):
         This is useful mostly for setup inside appliances, when user wants
         to be able to login remotely and change password then.
         '''
+        self.stderr.write('Warning: Creating user admin with password admin!')
+        self.stderr.write('Please change password immediatelly!')
         user = User.objects.create_user('admin', 'admin@example.com', 'admin')
         user.first_name = 'Weblate Admin'
         user.last_name = ''

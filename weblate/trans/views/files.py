@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -93,9 +93,9 @@ def upload_translation(request, project, subproject, lang):
 
     # Create author name
     author = None
-    if (request.user.has_perm('trans.author_translation')
-            and form.cleaned_data['author_name'] != ''
-            and form.cleaned_data['author_email'] != ''):
+    if (request.user.has_perm('trans.author_translation') and
+            form.cleaned_data['author_name'] != '' and
+            form.cleaned_data['author_email'] != ''):
         author = '%s <%s>' % (
             form.cleaned_data['author_name'],
             form.cleaned_data['author_email']

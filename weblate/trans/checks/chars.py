@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -139,6 +139,11 @@ class EndStopCheck(TargetCheck):
             # in case it's used before list.
             return self.check_chars(
                 source, target, -1, (u';', u':', u'：', u'.', u'。')
+            )
+        if self.is_language(unit, ('hy', )):
+            return self.check_chars(
+                source, target, -1,
+                (u'.', u'。', u'।', u'۔', u'։', u'·', u'෴', u'។', ':')
             )
         if self.is_language(unit, ('hi', 'bn')):
             # Using | instead of । is not typographically correct, but

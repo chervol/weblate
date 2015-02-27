@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -29,6 +29,8 @@ from weblate.accounts.models import notify_new_suggestion, notify_new_comment
 
 
 class SuggestionManager(models.Manager):
+    # pylint: disable=W0232
+
     def add(self, unit, target, request):
         '''
         Creates new suggestion for this unit.
@@ -171,6 +173,8 @@ class Vote(models.Model):
 
 
 class CommentManager(models.Manager):
+    # pylint: disable=W0232
+
     def add(self, unit, user, lang, text):
         '''
         Adds comment to this unit.
@@ -232,6 +236,16 @@ class Check(models.Model):
     language = models.ForeignKey(Language, null=True, blank=True)
     check = models.CharField(max_length=20, choices=CHECK_CHOICES)
     ignore = models.BooleanField(db_index=True, default=False)
+
+    _for_unit = None
+
+    @property
+    def for_unit(self):
+        return self._for_unit
+
+    @for_unit.setter
+    def for_unit(self, value):
+        self._for_unit = value
 
     class Meta(object):
         permissions = (

@@ -17,3 +17,6 @@ weblate-*.tar.*
 *.sublime-*
 /Weblate.egg-info/
 /build/
+/pyuca
+/data/
+/data-test/

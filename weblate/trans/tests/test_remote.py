@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -64,8 +64,8 @@ class MultiRepoTest(ViewTestCase):
             name='Test 2',
             slug='test-2',
             project=self.project,
-            repo=self.repo_path,
-            push=self.repo_path,
+            repo=self.git_repo_path,
+            push=self.git_repo_path,
             filemask='po/*.po',
             template='',
             file_format='po',

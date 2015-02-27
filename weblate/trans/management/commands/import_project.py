@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -39,7 +39,7 @@ class Command(BaseCommand):
     """
     Command for mass importing of repositories into Weblate.
     """
-    help = 'imports projects with more resources'
+    help = 'imports projects with more components'
     args = '<project> <gitrepo> <branch> <filemask>'
     option_list = BaseCommand.option_list + (
         make_option(
@@ -63,6 +63,11 @@ class Command(BaseCommand):
             default='auto',
             help='File format type, defaults to autodetection',
         ),
+        make_option(
+            '--vcs',
+            default='git',
+            help='Version control system to use',
+        ),
     )
 
     def __init__(self, *args, **kwargs):
@@ -71,6 +76,7 @@ class Command(BaseCommand):
         self.file_format = None
         self.name_template = None
         self.base_file_template = None
+        self.vcs = None
         self.logger = weblate.logger
         self._mask_regexp = None
 
@@ -158,6 +164,7 @@ class Command(BaseCommand):
         self.filemask = args[3]
         if args[3].startswith('/'):
             self.filemask = args[3][1:]
+        self.vcs = options['vcs']
         self.file_format = options['file_format']
         self.name_template = options['name_template']
         self.base_file_template = options['base_file_template']
@@ -207,12 +214,12 @@ class Command(BaseCommand):
             )
             if subprojects.exists():
                 self.logger.warn(
-                    'Resource %s already exists, skipping',
+                    'Component %s already exists, skipping',
                     name
                 )
                 continue
 
-            self.logger.info('Creating resource %s  %s', name, slug)
+            self.logger.info('Creating component %s', name)
             SubProject.objects.create(
                 name=name,
                 slug=slug,
@@ -240,14 +247,14 @@ class Command(BaseCommand):
 
         if SubProject.objects.filter(project=project, slug=slug).exists():
             self.logger.warn(
-                'Resource %s already exists, skipping and using it '
-                'as main resource',
+                'Component %s already exists, skipping and using it '
+                'as main component',
                 name
             )
             shutil.rmtree(workdir)
             return matches, 'weblate://%s/%s' % (project.slug, slug)
 
-        self.logger.info('Creating resource %s as main resource', name)
+        self.logger.info('Creating component %s as main one', name)
 
         # Rename gitrepository to new name
         os.rename(
@@ -262,6 +269,7 @@ class Command(BaseCommand):
             repo=repo,
             branch=branch,
             file_format=self.file_format,
+            vcs=self.vcs,
             template=template,
             filemask=self.filemask.replace('**', match)
         )

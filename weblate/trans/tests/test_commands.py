@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -27,13 +27,6 @@ from weblate.trans.tests.test_models import RepoTestCase
 from weblate.trans.models import SubProject
 from django.core.management import call_command
 from django.core.management.base import CommandError
-import django
-
-# Django 1.5 changes behavior here
-if django.VERSION >= (1, 5):
-    COMMAND_EXCEPTION = CommandError
-else:
-    COMMAND_EXCEPTION = SystemExit
 
 
 class ImportProjectTest(RepoTestCase):
@@ -42,7 +35,7 @@ class ImportProjectTest(RepoTestCase):
         call_command(
             'import_project',
             'test',
-            self.repo_path,
+            self.git_repo_path,
             'master',
             '**/*.po',
         )
@@ -54,7 +47,7 @@ class ImportProjectTest(RepoTestCase):
         call_command(
             'import_project',
             'test',
-            self.repo_path,
+            self.git_repo_path,
             'master',
             '**/*.po',
             file_format='po'
@@ -65,11 +58,11 @@ class ImportProjectTest(RepoTestCase):
     def test_import_invalid(self):
         project = self.create_project()
         self.assertRaises(
-            COMMAND_EXCEPTION,
+            CommandError,
             call_command,
             'import_project',
             'test',
-            self.repo_path,
+            self.git_repo_path,
             'master',
             '**/*.po',
             file_format='INVALID'
@@ -82,7 +75,7 @@ class ImportProjectTest(RepoTestCase):
         call_command(
             'import_project',
             'test',
-            self.repo_path,
+            self.git_repo_path,
             'master',
             '**/values-*/strings.xml',
             file_format='aresource',
@@ -96,7 +89,7 @@ class ImportProjectTest(RepoTestCase):
         call_command(
             'import_project',
             'test',
-            self.repo_path,
+            self.git_repo_path,
             'master',
             '**/values-*/strings.xml',
             file_format='aresource',
@@ -110,7 +103,7 @@ class ImportProjectTest(RepoTestCase):
         call_command(
             'import_project',
             'test',
-            self.repo_path,
+            self.git_repo_path,
             'master',
             '**/*.po',
         )
@@ -120,7 +113,7 @@ class ImportProjectTest(RepoTestCase):
         call_command(
             'import_project',
             'test',
-            self.repo_path,
+            self.git_repo_path,
             'master',
             '**/*.po',
         )
@@ -149,11 +142,11 @@ class ImportProjectTest(RepoTestCase):
         Test of correct handling of missing project.
         '''
         self.assertRaises(
-            COMMAND_EXCEPTION,
+            CommandError,
             call_command,
             'import_project',
             'test',
-            self.repo_path,
+            self.git_repo_path,
             'master',
             '**/*.po',
         )
@@ -164,11 +157,11 @@ class ImportProjectTest(RepoTestCase):
         '''
         self.create_project()
         self.assertRaises(
-            COMMAND_EXCEPTION,
+            CommandError,
             call_command,
             'import_project',
             'test',
-            self.repo_path,
+            self.git_repo_path,
             'master',
             '*/*.po',
         )
@@ -244,14 +237,14 @@ class CheckGitTest(RepoTestCase):
 
     def test_nonexisting_project(self):
         self.assertRaises(
-            COMMAND_EXCEPTION,
+            CommandError,
             self.do_test,
             'notest',
         )
 
     def test_nonexisting_subproject(self):
         self.assertRaises(
-            COMMAND_EXCEPTION,
+            CommandError,
             self.do_test,
             'test/notest',
         )
@@ -297,6 +290,10 @@ class LockTranslationTest(CheckGitTest):
 
 class UnLockTranslationTest(CheckGitTest):
     command_name = 'unlock_translation'
+
+
+class FixupFlagsTest(CheckGitTest):
+    command_name = 'fixup_flags'
 
 
 class LockingCommandTest(RepoTestCase):

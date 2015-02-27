@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -25,6 +25,7 @@ Tests for user handling.
 import tempfile
 from unittest import TestCase as UnitTestCase
 from django.test import TestCase
+from unittest import SkipTest
 from django.core.urlresolvers import reverse
 from django.contrib.auth.models import AnonymousUser, User, Group
 from django.core import mail
@@ -45,6 +46,7 @@ from weblate.accounts.models import (
 from weblate.accounts.captcha import (
     hash_question, unhash_question, MathCaptcha
 )
+from weblate.accounts import avatar
 from weblate.accounts.middleware import RequireLoginMiddleware
 
 from weblate.trans.tests.test_views import ViewTestCase, RegistrationTestMixin
@@ -65,8 +67,8 @@ REGISTRATION_DATA = {
 class RegistrationTest(TestCase, RegistrationTestMixin):
     clear_cookie = False
 
-    def assert_registration(self):
-        url = self.assert_registration_mailbox()
+    def assert_registration(self, match=None):
+        url = self.assert_registration_mailbox(match)
 
         if self.clear_cookie:
             del self.client.cookies['sessionid']
@@ -142,18 +144,18 @@ class RegistrationTest(TestCase, RegistrationTestMixin):
         )
         self.assertRedirects(response, reverse('email-sent'))
 
-        self.assert_registration()
+        self.assert_registration('[Weblate] Password reset on Weblate')
 
     def test_wrong_username(self):
         data = REGISTRATION_DATA.copy()
-        data['username'] = 'u'
+        data['username'] = ''
         response = self.client.post(
             reverse('register'),
             data
         )
         self.assertContains(
             response,
-            'Ensure this value has at least 4 characters (it has 1).'
+            'This field is required.',
         )
 
     def test_wrong_mail(self):
@@ -165,12 +167,7 @@ class RegistrationTest(TestCase, RegistrationTestMixin):
         )
         self.assertContains(
             response,
-            'Enter'
-        )
-        # Error message has changed in Django 1.5
-        self.assertTrue(
-            'Enter a valid e-mail address.' in response.content
-            or 'Enter a valid email address.' in response.content
+            'Enter a valid email address.'
         )
 
     def test_spam(self):
@@ -239,7 +236,7 @@ class CommandTest(TestCase):
             call_command('importuserdata', output.name)
 
         profile = Profile.objects.get(user__username='testuser')
-        self.assertEquals(profile.translated, 2000)
+        self.assertEqual(profile.translated, 2000)
 
 
 class ViewTest(TestCase):
@@ -353,7 +350,7 @@ class ViewTest(TestCase):
         response = self.client.get(
             reverse('user_page', kwargs={'user': user.username})
         )
-        self.assertContains(response, 'src="/activity')
+        self.assertContains(response, '="/activity/')
 
     def test_login(self):
         self.get_user()
@@ -664,3 +661,60 @@ class MiddlewareTest(TestCase):
         self.assertIsNone(
             middleware.process_view(request, self.view_method, (), {})
         )
+
+
+class AvatarTest(ViewTestCase):
+    def setUp(self):
+        super(AvatarTest, self).setUp()
+        self.user.email = 'test@example.com'
+        self.user.save()
+
+    def assert_url(self):
+        url = avatar.avatar_for_email(self.user.email)
+        self.assertEqual(
+            'https://seccdn.libravatar.org/avatar/'
+            '55502f40dc8b7c769880b10874abc9d0',
+            url.split('?')[0]
+        )
+
+    def test_avatar_for_email_own(self):
+        backup = avatar.HAS_LIBRAVATAR
+        try:
+            avatar.HAS_LIBRAVATAR = False
+            self.assert_url()
+        finally:
+            avatar.HAS_LIBRAVATAR = backup
+
+    def test_avatar_for_email_libravatar(self):
+        if not avatar.HAS_LIBRAVATAR:
+            raise SkipTest('Libravatar not installed')
+        self.assert_url()
+
+    def test_avatar(self):
+        # Real user
+        response = self.client.get(
+            reverse(
+                'user_avatar',
+                kwargs={'user': self.user.username, 'size': 32}
+            )
+        )
+        self.assertPNG(response)
+        # Test caching
+        response = self.client.get(
+            reverse(
+                'user_avatar',
+                kwargs={'user': self.user.username, 'size': 32}
+            )
+        )
+        self.assertPNG(response)
+
+    def test_anonymous_avatar(self):
+        anonymous = User.objects.get(username='anonymous')
+        # Anonymous user
+        response = self.client.get(
+            reverse(
+                'user_avatar',
+                kwargs={'user': anonymous.username, 'size': 32}
+            )
+        )
+        self.assertPNG(response)

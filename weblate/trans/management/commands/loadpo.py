@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -20,6 +20,7 @@
 
 from weblate.trans.management.commands import WeblateLangCommand
 from optparse import make_option
+from django.db import transaction
 
 
 class Command(WeblateLangCommand):
@@ -39,4 +40,5 @@ class Command(WeblateLangCommand):
         if options['lang'] is not None:
             langs = options['lang'].split(',')
         for subproject in self.get_subprojects(*args, **options):
-            subproject.create_translations(options['force'], langs)
+            with transaction.atomic():
+                subproject.create_translations(options['force'], langs)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -19,15 +19,24 @@
 #
 
 from django.core.exceptions import ImproperlyConfigured
-from django.contrib.sites.models import Site
 from django.core.cache import cache
 from django.http import HttpResponseRedirect
 from django.shortcuts import resolve_url
 from importlib import import_module
 import os
 import urlparse
+import hashlib
 
 PLURAL_SEPARATOR = '\x1e\x1e'
+
+
+def calculate_checksum(source, context):
+    """Calculates checksum identifying translation."""
+    md5 = hashlib.md5()
+    if source is not None:
+        md5.update(source.encode('utf-8'))
+    md5.update(context.encode('utf-8'))
+    return md5.hexdigest()
 
 
 def is_plural(text):
@@ -69,6 +78,7 @@ def get_site_url(url=''):
     Returns root url of current site with domain.
     '''
     from weblate.appsettings import ENABLE_HTTPS
+    from django.contrib.sites.models import Site
     site = Site.objects.get_current()
     return '{0}://{1}{2}'.format(
         'https' if ENABLE_HTTPS else 'http',
@@ -141,12 +151,14 @@ def get_configuration_errors():
     return cache.get('configuration-errors', [])
 
 
-def get_clean_env():
+def get_clean_env(extra=None):
     """
     Returns cleaned up environment for subprocess execution.
     """
     environ = {}
-    variables = ('HOME', 'PATH', 'LANG')
+    if extra is not None:
+        environ.update(extra)
+    variables = ('HOME', 'PATH', 'LANG', 'LD_LIBRARY_PATH')
     for var in variables:
         if var in os.environ:
             environ[var] = os.environ[var]

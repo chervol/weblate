@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -22,7 +22,7 @@ from django.shortcuts import redirect
 from django.core.urlresolvers import reverse
 
 from social.pipeline.partial import partial
-from social.exceptions import AuthForbidden
+from social.exceptions import AuthForbidden, AuthMissingParameter
 
 from weblate.accounts.models import send_notification_email, VerifiedEmail
 from weblate import appsettings
@@ -58,6 +58,10 @@ def send_validation(strategy, backend, code):
     if not strategy.request.session.session_key:
         strategy.request.session.create()
 
+    template = 'activation'
+    if strategy.request.session.pop('password_reset', False):
+        template = 'reset'
+
     url = '{}?verification_code={}&id={}'.format(
         reverse('social:complete', args=(backend.name,)),
         code.code,
@@ -67,7 +71,7 @@ def send_validation(strategy, backend, code):
     send_notification_email(
         None,
         code.email,
-        'activation',
+        template,
         info=code.code,
         context={
             'url': url
@@ -84,10 +88,12 @@ def verify_open(backend, user, **kwargs):
         raise AuthForbidden(backend)
 
 
-def store_email(strategy, user, social, details, **kwargs):
+def store_email(strategy, backend, user, social, details, **kwargs):
     '''
     Stores verified email.
     '''
+    if details['email'] is None:
+        raise AuthMissingParameter(backend, 'email')
     if 'email' in details:
         verified, dummy = VerifiedEmail.objects.get_or_create(social=social)
         if verified.email != details['email']:
@@ -102,8 +108,8 @@ def user_full_name(strategy, details, user=None, **kwargs):
     if user:
         full_name = details.get('fullname', '').strip()
 
-        if (not full_name
-                and ('first_name' in details or 'last_name' in details)):
+        if (not full_name and
+                ('first_name' in details or 'last_name' in details)):
             first_name = details.get('first_name', '')
             last_name = details.get('last_name', '')
 

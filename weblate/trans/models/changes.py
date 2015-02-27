@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -28,6 +28,8 @@ from weblate.accounts.avatar import get_user_display
 
 
 class ChangeManager(models.Manager):
+    # pylint: disable=W0232
+
     def content(self, prefetch=False):
         '''
         Returns queryset with content changes.
@@ -80,8 +82,7 @@ class ChangeManager(models.Manager):
         '''
 
         # Get range (actually start)
-        dtend = timezone.now().date()
-        dtstart = dtend - timezone.timedelta(days=days)
+        dtstart = timezone.now().date() - timezone.timedelta(days=days + 1)
 
         # Base for filtering
         base = self.all()
@@ -103,18 +104,6 @@ class ChangeManager(models.Manager):
             base = base.filter(user=user)
 
         return self.count_stats(days, step, dtstart, base)
-
-    def month_stats(self, *args, **kwargs):
-        '''
-        Reports daily stats for changes.
-        '''
-        return self.base_stats(30, 1, *args, **kwargs)
-
-    def year_stats(self, *args, **kwargs):
-        '''
-        Reports monthly stats for changes.
-        '''
-        return self.base_stats(365, 7, *args, **kwargs)
 
     def prefetch(self):
         '''
@@ -159,6 +148,8 @@ class Change(models.Model):
     ACTION_DICTIONARY_EDIT = 11
     ACTION_DICTIONARY_UPLOAD = 12
     ACTION_NEW_SOURCE = 13
+    ACTION_LOCK = 14
+    ACTION_UNLOCK = 15
 
     ACTION_CHOICES = (
         (ACTION_UPDATE, ugettext_lazy('Resource update')),
@@ -175,6 +166,8 @@ class Change(models.Model):
         (ACTION_DICTIONARY_EDIT, ugettext_lazy('Glossary updated')),
         (ACTION_DICTIONARY_UPLOAD, ugettext_lazy('Glossary uploaded')),
         (ACTION_NEW_SOURCE, ugettext_lazy('New source string')),
+        (ACTION_LOCK, ugettext_lazy('Component locked')),
+        (ACTION_UNLOCK, ugettext_lazy('Component unlocked')),
     )
 
     unit = models.ForeignKey('Unit', null=True)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -91,6 +91,18 @@ EXTRALANGS = (
     (
         'en_US',
         'English (United States)',
+        2,
+        'n != 1',
+    ),
+    (
+        'en_CA',
+        'English (Canada)',
+        2,
+        'n != 1',
+    ),
+    (
+        'en_AU',
+        'English (Australia)',
         2,
         'n != 1',
     ),
@@ -271,8 +283,8 @@ EXTRALANGS = (
     (
         'cy',
         'Welsh',
-        4,
-        '(n==0) ? 0 : (n==1) ? 1  (n==2) ? 2 : (n==3) ? 3 :(n==6) ? 4 : 5',
+        6,
+        '(n==0) ? 0 : (n==1) ? 1 : (n==2) ? 2 : (n==3) ? 3 :(n==6) ? 4 : 5',
     ),
     (
         'hy',
@@ -285,6 +297,56 @@ EXTRALANGS = (
         'Uzbek',
         2,
         '(n > 1)',
+    ),
+    (
+        'os',
+        'Ossetian',
+        2,
+        '(n != 1)',
+    ),
+    (
+        'ts',
+        'Tsonga',
+        2,
+        '(n != 1)',
+    ),
+    (
+        'frp',
+        u'Franco-Provençal',
+        2,
+        '(n > 1)',
+    ),
+    (
+        'zh_Hant',
+        u'Traditional Chinese',
+        1,
+        '0',
+    ),
+    (
+        'zh_Hans',
+        u'Simplified Chinese',
+        1,
+        '0',
+    ),
+    (
+        'sh',
+        u'Serbo-Croatian',
+        3,
+        'n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 &&'
+        ' (n%100<10 || n%100>=20) ? 1 : 2',
+    ),
+    (
+        'nl_BE',
+        u'Dutch (Belgium)',
+        2,
+        '(n != 1)',
+    ),
+    # Wrong language code used by Java
+    (
+        'in',
+        'Indonesian',
+        1,
+        '0',
     ),
 )
 
@@ -326,6 +388,7 @@ DEFAULT_LANGS = (
     'hr_HR',
     'hu_HU',
     'id_ID',
+    'in_ID',
     'is_IS',
     'it_IT',
     'iu_CA',
@@ -418,8 +481,6 @@ LANGUAGE_NAME_FIXUPS = {
     'oc': 'Occitan',
     'nb': 'Norwegian Bokmål',
     'pa': 'Punjabi',
-    'zh_CN': 'Simplified Chinese',
-    'zh_TW': 'Traditional Chinese',
     'ca@valencia': 'Valencian',
     'ky': 'Kyrgyz',
 }
@@ -479,7 +540,7 @@ ONE_OTHER_ZERO_PLURALS = (
 )
 
 ZERO_ONE_TWO_THREE_SIX_OTHER = (
-    '(n==0) ? 0 : (n==1) ? 1  (n==2) ? 2 : (n==3) ? 3 :(n==6) ? 4 : 5',
+    '(n==0) ? 0 : (n==1) ? 1 : (n==2) ? 2 : (n==3) ? 3 :(n==6) ? 4 : 5',
 )
 
 # Plural types definition
@@ -585,4 +646,20 @@ PLURAL_NAMES = {
         pgettext_lazy('Plural form description', 'Many'),
         pgettext_lazy('Plural form description', 'Other'),
     ),
+}
+
+LOCALE_ALIASES = {
+    # Windows
+    'arabic': 'ar',
+    'chinese_chs': 'zh_CN',
+    'chinese_zh': 'zh_TW',
+    'dutch_be': 'nl_BE',
+    'english-uk': 'en_GB',
+    'portuguese_br': 'pt_BR',
+    'portuguese_portugal': 'pt_PT',
+    'serbo-croatian': 'sh',
+    'indonesian': 'id',
+    'norwegian': 'nb',
+    # Android
+    'be-rBY': 'be@latin',
 }

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -33,7 +33,7 @@ from weblate.trans.formats import FILE_FORMAT_CHOICES, FILE_FORMATS
 from weblate.trans.mixins import PercentMixin, URLMixin, PathMixin
 from weblate.trans.filelock import FileLock
 from weblate.trans.util import is_repo_link, get_site_url, cleanup_repo_url
-from weblate.trans.vcs import GitRepository, RepositoryException
+from weblate.trans.vcs import RepositoryException, VCS_REGISTRY, VCS_CHOICES
 from weblate.trans.models.translation import Translation
 from weblate.trans.validators import (
     validate_repoweb, validate_filemask,
@@ -65,6 +65,8 @@ MERGE_CHOICES = (
 
 
 class SubProjectManager(models.Manager):
+    # pylint: disable=W0232
+
     def get_linked(self, val):
         '''
         Returns subproject for linked repo.
@@ -77,7 +79,7 @@ class SubProjectManager(models.Manager):
 
 class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
     name = models.CharField(
-        verbose_name=ugettext_lazy('Resource name'),
+        verbose_name=ugettext_lazy('Component name'),
         max_length=100,
         help_text=ugettext_lazy('Name to display')
     )
@@ -90,19 +92,29 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         'Project',
         verbose_name=ugettext_lazy('Project'),
     )
+    vcs = models.CharField(
+        verbose_name=ugettext_lazy('Version control system'),
+        max_length=20,
+        help_text=ugettext_lazy(
+            'Version control system to use to access your '
+            'repository with translations.'
+        ),
+        choices=VCS_CHOICES,
+        default='git',
+    )
     repo = models.CharField(
         verbose_name=ugettext_lazy('Source code repository'),
         max_length=200,
         help_text=ugettext_lazy(
-            'URL of Git repository, use weblate://project/resource '
-            'for sharing with other resource.'
+            'URL of a repository, use weblate://project/component '
+            'for sharing with other component.'
         ),
     )
     push = models.CharField(
-        verbose_name=ugettext_lazy('Git push URL'),
+        verbose_name=ugettext_lazy('Repository push URL'),
         max_length=200,
         help_text=ugettext_lazy(
-            'URL of push Git repository, pushing is disabled if empty.'
+            'URL of a push repository, pushing is disabled if empty.'
         ),
         blank=True
     )
@@ -116,10 +128,10 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         blank=True,
     )
     git_export = models.CharField(
-        verbose_name=ugettext_lazy('Exported Git URL'),
+        verbose_name=ugettext_lazy('Exported repository URL'),
         max_length=200,
         help_text=ugettext_lazy(
-            'URL of Git repository where users can fetch changes from Weblate'
+            'URL of a repository where users can fetch changes from Weblate'
         ),
         blank=True
     )
@@ -129,12 +141,13 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
             'Email address where errors in source string will be reported, '
             'keep empty for no emails.'
         ),
+        max_length=254,
         blank=True,
     )
     branch = models.CharField(
-        verbose_name=ugettext_lazy('Git branch'),
+        verbose_name=ugettext_lazy('Repository branch'),
         max_length=50,
-        help_text=ugettext_lazy('Git branch to translate'),
+        help_text=ugettext_lazy('Repository branch to translate'),
         default='master'
     )
     filemask = models.CharField(
@@ -202,14 +215,14 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         verbose_name=ugettext_lazy('Locked'),
         default=False,
         help_text=ugettext_lazy(
-            'Whether resource is locked for translation updates.'
+            'Whether component is locked for translation updates.'
         )
     )
     allow_translation_propagation = models.BooleanField(
         verbose_name=ugettext_lazy('Allow translation propagation'),
         default=True,
         help_text=ugettext_lazy(
-            'Whether translation updates in other resources '
+            'Whether translation updates in other components '
             'will cause automatic translation in this one'
         )
     )
@@ -309,6 +322,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
     )
     committer_email = models.EmailField(
         verbose_name=ugettext_lazy('Committer email'),
+        max_length=254,
         default='noreply@weblate.org'
     )
 
@@ -324,7 +338,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         )
         permissions = (
             ('lock_subproject', "Can lock translation for translating"),
-            ('can_see_git_repository', "Can see git repository URL"),
+            ('can_see_git_repository', "Can see VCS repository URL"),
         )
         app_label = 'trans'
 
@@ -396,7 +410,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
 
     def _get_path(self):
         '''
-        Returns full path to subproject git repository.
+        Returns full path to subproject VCS repository.
         '''
         if self.is_repo_link:
             return self.linked_subproject.get_path()
@@ -461,7 +475,11 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
             return self.linked_subproject.repository
 
         if self._repository is None:
-            self._repository = GitRepository(self.get_path())
+            self._repository = VCS_REGISTRY[self.vcs](self.get_path())
+            cache_key = '{0}-config-check'.format(self.get_full_slug())
+            if cache.get(cache_key) is None:
+                self._repository.check_config()
+                cache.set(cache_key, True)
 
         return self._repository
 
@@ -508,7 +526,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
 
     def get_export_url(self):
         '''
-        Returns URL of exported git repository.
+        Returns URL of exported VCS repository.
         '''
         if self.is_repo_link:
             return self.linked_subproject.git_export
@@ -611,10 +629,10 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         self.create_translations(request=request)
 
         # Push after possible merge
-        if (self.git_needs_push()
-                and ret
-                and self.project.push_on_commit
-                and self.can_push()):
+        if (self.git_needs_push() and
+                ret and
+                self.project.push_on_commit and
+                self.can_push()):
             self.do_push(request, force_commit=False, do_update=False)
 
         return ret
@@ -658,7 +676,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
                 self.repository.push(self.branch)
             return True
         except RepositoryException as error:
-            self.log_error('failed to push on repo')
+            self.log_error('failed to push on repo: %s', error)
             msg = 'Error:\n%s' % str(error)
             mail_admins(
                 'failed push on repo %s' % self.__unicode__(),
@@ -767,15 +785,18 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
                 return True
             except Exception as error:
                 # In case merge has failer recover
-                status = self.repository.status()
                 error = str(error)
-                method(abort=True)
+                status = self.repository.status()
 
-        # Log error
-        self.log_error(
-            'failed %s on repo',
-            self.merge_style,
-        )
+                # Log error
+                self.log_error(
+                    'failed %s on repo: %s',
+                    self.merge_style,
+                    error
+                )
+
+                # Reset repo back
+                method(abort=True)
 
         # Notify subscribers and admins
         self.notify_merge_failure(error, status)
@@ -796,14 +817,14 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         prefix = os.path.join(self.get_path(), '')
         matches = glob(os.path.join(self.get_path(), self.filemask))
         matches = [f.replace(prefix, '') for f in matches]
-        # Template can have possibly same name as translations
-        if self.has_template() and self.template in matches:
-            matches.remove(self.template)
+        # We want to list template among translations as well
+        if self.has_template() and self.template not in matches:
+            matches.append(self.template)
         return matches
 
     def create_translations(self, force=False, langs=None, request=None):
         '''
-        Loads translations from git.
+        Loads translations from VCS.
         '''
         translations = []
         matches = self.get_mask_matches()
@@ -852,6 +873,10 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         # No * in mask?
         if len(parts) == 1:
             return 'INVALID'
+        # Assume English language for template if we can not parse it
+        if ((not path.startswith(parts[0]) or not path.endswith(parts[1])) and
+                path == self.template):
+            return 'en'
         # Get part matching to first wildcard
         if len(parts[1]) == 0:
             code = path[len(parts[0]):].split('/')[0]
@@ -862,7 +887,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
 
     def sync_git_repo(self, validate=False):
         '''
-        Brings git repo in sync with current model.
+        Brings VCS repo in sync with current model.
         '''
         if self.is_repo_link:
             return
@@ -922,7 +947,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
             if code in langs:
                 raise ValidationError(_(
                     'There are more files for single language, please '
-                    'adjust the mask and use resources for translating '
+                    'adjust the mask and use components for translating '
                     'different resources.'
                 ))
             if lang.code in translated_langs:
@@ -1037,7 +1062,7 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         Validator fetches repository and tries to find translation files.
         Then it checks them for validity.
         '''
-        if self.new_lang == 'url' and self.instructions == '':
+        if self.new_lang == 'url' and self.project.instructions == '':
             raise ValidationError(_(
                 'Please either fill in instructions URL '
                 'or use different option for adding new language.'
@@ -1057,21 +1082,33 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
             old = SubProject.objects.get(pk=self.id)
             self.check_rename(old)
 
+            if old.vcs != self.vcs:
+                # This could work, but the problem is that before changed
+                # object is saved the linked repos still see old vcs leading
+                # to horrible mess. Changing vcs from the manage.py shell
+                # works fine though.
+                raise ValidationError(
+                    _('Changing version control system is not supported!')
+                )
+
         # Check file format
         if self.file_format not in FILE_FORMATS:
             raise ValidationError(
                 _('Unsupported file format: {0}').format(self.file_format)
             )
 
-        # Validate git repo
+        # Validate VCS repo
         try:
             self.sync_git_repo(True)
         except RepositoryException as exc:
-            raise ValidationError(_('Failed to update git: %s') % exc)
+            raise ValidationError(_('Failed to update repository: %s') % exc)
 
         # Push repo is not used with link
         if self.is_repo_link:
             self.clean_repo_link()
+
+        # Template validation
+        self.clean_template()
 
         matches = self.get_mask_matches()
 
@@ -1080,9 +1117,6 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
 
         # Try parsing files
         self.clean_files(matches)
-
-        # Template validation
-        self.clean_template()
 
         # New language options
         self.clean_new_lang()
@@ -1108,17 +1142,22 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
 
     def save(self, *args, **kwargs):
         '''
-        Save wrapper which updates backend Git repository and regenerates
+        Save wrapper which updates backend repository and regenerates
         translation data.
         '''
-        # Detect if git config has changed (so that we have to pull the repo)
+        # Detect if VCS config has changed (so that we have to pull the repo)
         changed_git = True
+        changed_setup = False
         if self.id:
             old = SubProject.objects.get(pk=self.id)
             changed_git = (
-                (old.repo != self.repo)
-                or (old.branch != self.branch)
-                or (old.filemask != self.filemask)
+                (old.repo != self.repo) or
+                (old.branch != self.branch) or
+                (old.filemask != self.filemask)
+            )
+            changed_setup = (
+                (old.file_format != self.file_format) or
+                (old.template != self.template)
             )
             # Detect slug changes and rename git repo
             self.check_rename(old)
@@ -1140,7 +1179,9 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
 
         # Rescan for possibly new translations if there were changes, needs to
         # be done after actual creating the object above
-        if changed_git:
+        if changed_setup:
+            self.create_translations(force=True)
+        elif changed_git:
             self.create_translations()
 
     def _get_percents(self):
@@ -1178,7 +1219,8 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         '''
         Returns file format object.
         '''
-        if self._file_format is None:
+        if (self._file_format is None or
+                self._file_format.name != self.file_format):
             self._file_format = FILE_FORMATS[self.file_format]
         return self._file_format
 
@@ -1188,9 +1230,9 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         '''
         monolingual = self.file_format_cls.monolingual
         return (
-            (monolingual or monolingual is None)
-            and len(self.template) > 0
-            and not self.template.endswith('.pot')
+            (monolingual or monolingual is None) and
+            len(self.template) > 0 and
+            not self.template.endswith('.pot')
         )
 
     def load_template_store(self):
@@ -1235,8 +1277,8 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
         '''
         if self._all_flags is None:
             self._all_flags = (
-                self.check_flags.split(',')
-                + list(self.file_format_cls.check_flags)
+                self.check_flags.split(',') +
+                list(self.file_format_cls.check_flags)
             )
         return self._all_flags
 
@@ -1255,18 +1297,18 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
             raise ValueError('Not supported operation!')
 
         filename = self.file_format_cls.get_language_filename(
-            self.get_path(),
             self.filemask,
             language.code
         )
+        fullname = os.path.join(self.get_path(), filename)
 
         # Create directory for a translation
-        dirname = os.path.dirname(filename)
+        dirname = os.path.dirname(fullname)
         if not os.path.exists(dirname):
             os.makedirs(dirname)
 
         self.file_format_cls.add_language(
-            filename,
+            fullname,
             language.code,
             base_filename
         )
@@ -1288,3 +1330,25 @@ class SubProject(models.Model, PercentMixin, URLMixin, PathMixin):
             force=True,
             request=request
         )
+
+    def do_lock(self, user):
+        """Locks component."""
+        self.locked = True
+        self.save()
+        if self.translation_set.exists():
+            Change.objects.create(
+                translation=self.translation_set.all()[0],
+                user=user,
+                action=Change.ACTION_LOCK,
+            )
+
+    def do_unlock(self, user):
+        """Locks component."""
+        self.locked = False
+        self.save()
+        if self.translation_set.exists():
+            Change.objects.create(
+                translation=self.translation_set.all()[0],
+                user=user,
+                action=Change.ACTION_UNLOCK,
+            )

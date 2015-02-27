@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -37,5 +37,5 @@ class FooCheck(TargetCheck):
     description = _('Your translation is foo')
 
     # Real check code
-    def check_single(self, source, target, unit):
+    def check_single(self, source, target, unit, cache_slot):
         return 'foo' in target

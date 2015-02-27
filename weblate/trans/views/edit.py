@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -19,6 +19,7 @@
 #
 
 from django.shortcuts import render, get_object_or_404, redirect
+from django.views.decorators.http import require_POST
 from django.utils.translation import ugettext as _
 from django.http import HttpResponseRedirect, HttpResponse
 from django.contrib import messages
@@ -28,7 +29,8 @@ import uuid
 import time
 
 from weblate.trans.models import (
-    SubProject, Unit, Change, Comment, Suggestion, Dictionary
+    SubProject, Unit, Change, Comment, Suggestion, Dictionary,
+    get_related_units,
 )
 from weblate.trans.autofixes import fix_target
 from weblate.trans.forms import (
@@ -47,9 +49,10 @@ def cleanup_session(session):
     '''
     now = int(time.time())
     for key in session.keys():
+        if not key.startswith('search_'):
+            continue
         value = session[key]
-        if (key.startswith('search_')
-                and (not isinstance(value, dict) or value['ttl'] < now)):
+        if not isinstance(value, dict) or value['ttl'] < now:
             del session[key]
 
 
@@ -219,7 +222,11 @@ def perform_translation(unit, form, request):
     )
 
     # Run AutoFixes on user input
-    new_target, fixups = fix_target(form.cleaned_data['target'], unit)
+    if not unit.translation.is_template():
+        new_target, fixups = fix_target(form.cleaned_data['target'], unit)
+    else:
+        new_target = form.cleaned_data['target']
+        fixups = []
 
     # Save
     saved = unit.translate(
@@ -289,21 +296,20 @@ def handle_translate(translation, request, user_locked,
             request,
             _('You don\'t have privileges to save translations!')
         )
-    elif (unit.only_vote_suggestions()
-          and not request.user.has_perm('trans.override_suggestion')):
+    elif (unit.only_vote_suggestions() and not
+          request.user.has_perm('trans.override_suggestion')):
         messages.error(
             request,
             _('Only suggestions are allowed in this translation!')
         )
     elif not user_locked:
         # Custom commit message
-        if ('commit_message' in request.POST
-                and request.POST['commit_message']
-                != unit.translation.commit_message):
+        message = request.POST.get('commit_message')
+        if message and message != unit.translation.commit_message:
             # Commit pending changes so that they don't get new message
             unit.translation.commit_pending(request, request.user)
             # Store new commit message
-            unit.translation.commit_message = request.POST['commit_message']
+            unit.translation.commit_message = message
             unit.translation.save()
 
         go_next = perform_translation(unit, form, request)
@@ -461,9 +467,9 @@ def translate(request, project, subproject, lang):
     translation = get_translation(request, project, subproject, lang)
 
     # Check locks
-    project_locked, user_locked, own_lock = translation.is_locked(
-        request, True
-    )
+    user_locked = translation.is_user_locked(request)
+    project_locked = translation.subproject.locked
+    own_lock = translation.lock_user == request.user
     locked = project_locked or user_locked
 
     # Search results
@@ -504,10 +510,10 @@ def translate(request, project, subproject, lang):
     if request.method == 'POST' and not project_locked:
 
         # Handle accepting/deleting suggestions
-        if ('accept' not in request.POST
-                and 'delete' not in request.POST
-                and 'upvote' not in request.POST
-                and 'downvote' not in request.POST):
+        if ('accept' not in request.POST and
+                'delete' not in request.POST and
+                'upvote' not in request.POST and
+                'downvote' not in request.POST):
             response = handle_translate(
                 translation, request, user_locked,
                 this_unit_url, next_unit_url
@@ -563,6 +569,7 @@ def translate(request, project, subproject, lang):
             'next_unit_url': next_unit_url,
             'prev_unit_url': base_unit_url + str(offset - 1),
             'object': translation,
+            'project': translation.subproject.project,
             'unit': unit,
             'others': Unit.objects.same(unit).exclude(target=unit.target),
             'total': translation.unit_set.all().count(),
@@ -677,6 +684,27 @@ def comment(request, pk):
     return redirect(request.POST.get('next', translation))
 
 
+@login_required
+@require_POST
+def delete_comment(request, pk):
+    """
+    Deletes comment.
+    """
+    comment_obj = get_object_or_404(Comment, pk=pk)
+    comment_obj.project.check_acl(request)
+
+    units = get_related_units(comment_obj)
+    if units.exists():
+        fallback_url = units[0].get_absolute_url()
+    else:
+        fallback_url = comment_obj.project.get_absolute_url()
+
+    comment_obj.delete()
+    messages.info(request, _('Translation comment has been deleted.'))
+
+    return redirect(request.POST.get('next', fallback_url))
+
+
 def get_zen_unitdata(translation, request):
     '''
     Loads unit data for zen mode.
@@ -733,6 +761,7 @@ def zen(request, project, subproject, lang):
         'zen.html',
         {
             'object': translation,
+            'project': translation.subproject.project,
             'unitdata': unitdata,
             'search_query': search_result['query'],
             'filter_name': search_result['name'],
@@ -762,6 +791,7 @@ def load_zen(request, project, subproject, lang):
             'object': translation,
             'unitdata': unitdata,
             'search_query': search_result['query'],
+            'search_id': search_result['search_id'],
             'last_section': search_result['last_section'],
         }
     )

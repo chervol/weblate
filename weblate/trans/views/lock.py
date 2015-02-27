@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -73,12 +73,11 @@ def lock_subproject(request, project, subproject):
 
     obj.commit_pending(request)
 
-    obj.locked = True
-    obj.save()
+    obj.do_lock(request.user)
 
     messages.success(
         request,
-        _('Subproject is now locked for translation updates!')
+        _('Component is now locked for translation updates!')
     )
 
     return redirect(obj)
@@ -89,12 +88,11 @@ def lock_subproject(request, project, subproject):
 def unlock_subproject(request, project, subproject):
     obj = get_subproject(request, project, subproject)
 
-    obj.locked = False
-    obj.save()
+    obj.do_unlock(request.user)
 
     messages.success(
         request,
-        _('Subproject is now open for translation updates.')
+        _('Component is now open for translation updates.')
     )
 
     return redirect(obj)
@@ -108,8 +106,7 @@ def lock_project(request, project):
     obj.commit_pending(request)
 
     for subproject in obj.subproject_set.all():
-        subproject.locked = True
-        subproject.save()
+        subproject.do_lock(request.user)
 
     messages.success(
         request,
@@ -125,8 +122,7 @@ def unlock_project(request, project):
     obj = get_project(request, project)
 
     for subproject in obj.subproject_set.all():
-        subproject.locked = False
-        subproject.save()
+        subproject.do_unlock(request.user)
 
     messages.success(
         request,

@@ -1,14 +1,13 @@
 {% extends "base.html" %}
 {% load i18n %}
 {% load translations %}
-{% load url from future %}
 {% load crispy_forms_tags %}
 
 {% block breadcrumbs %}
 <li><a href="{{ object.get_absolute_url }}">{{ object }}</a></li>
 
 <a class="pull-right flip" href="{{ object.get_widgets_url }}">
-<img src="{% url 'widget-image' project=object.slug widget='shields' color='badge' extension='svg' %}" />
+<img src="{% url 'widget-image' project=object.slug widget='svg' color='badge' extension='svg' %}" />
 </a>
 {% endblock %}
 
@@ -16,7 +15,7 @@
 <ul class="nav nav-pills">
   <li class="active"><a href="#overview" data-toggle="tab">{% trans "Overview" %}</a></li>
   <li><a href="#history" data-toggle="tab">{% trans "History" %}</a></li>
-  <li><a href="#activity" data-toggle="tab" data-href="{% url 'view_activity_project' project=object.slug %}">{% trans "Activity" %}</a></li>
+  <li><a href="#activity" data-toggle="tab" data-load="activity" data-yearly="{% url 'yearly_activity' project=object.slug %}" data-monthly="{% url 'monthly_activity' project=object.slug %}">{% trans "Activity" %}</a></li>
   <li class="dropdown">
     <a class="dropdown-toggle" data-toggle="dropdown" href="#">
       {% trans "Tools" %} <span class="caret"></span>
@@ -28,7 +27,7 @@
       {% endif %}
       <li><a href="{% url 'checks' %}?project={{ object.slug }}">{% trans "Failing checks" %}</a></li>
       <li><a href="{% url 'checks' %}?project={{ object.slug }}&amp;ignored=true">{% trans "Ignored checks" %}</a></li>
-      {% if perms.trans.manage_acl %}
+      {% if perms.trans.manage_acl and object.enable_acl %}
       <li><a href="#acl" data-toggle="tab">{% trans "Manage users" %}</a></li>
       {% endif %}
     </ul>
@@ -54,17 +53,17 @@
 
 <div class="row">
 
-<div class="col-md-6">
+<div class="col-lg-6">
 
 
 <div class="panel panel-primary">
-  <div class="panel-heading"><h4 class="panel-title">{% trans "Resources" %}</h4></div>
+  <div class="panel-heading"><h4 class="panel-title">{% trans "Components" %}</h4></div>
   <div class="panel-body">
 
 <table class="sort table">
 <thead>
 <tr>
-<th>{% trans "Resource" %}</th>
+<th>{% trans "Component" %}</th>
 <th colspan="2">{% trans "Translated" %}</th>
 </tr>
 <tbody>
@@ -87,7 +86,7 @@
 
 </div>
 
-<div class="col-md-6">
+<div class="col-lg-6">
 
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Project Information" %}</h4></div>
@@ -127,15 +126,7 @@
 {% include "last-changes.html" %}
 </div>
 
-<div class="tab-pane" id="activity">
-<div class="panel panel-primary">
-<div class="panel-heading"><h4 class="panel-title">{% trans "Activity" %}</h4></div>
-<div class="panel-body">
-<p>{% trans "Loading…" %}</p>
-</div>
-
-</div>
-</div>
+{% include "activity-tab.html" %}
 
 {% if perms.trans.commit_translation or perms.trans.update_translation %}
 <div class="tab-pane" id="repository">
@@ -143,10 +134,10 @@
 </div>
 {% endif %}
 
-{% if perms.trans.manage_acl %}
+{% if perms.trans.manage_acl and object.enable_acl %}
 <div class="tab-pane" id="acl">
 <div class="row">
-<div class="col-md-6">
+<div class="col-lg-6">
 
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Users" %}</h4></div>
@@ -170,7 +161,7 @@
 {% csrf_token %}
 <input type="hidden" name="name" value="{{ user.username }}" />
 <button type="submit" class="btn btn-danger btn-xs">
-<span class="glyphicon glyphicon-trash"></span>
+<i class="fa fa-trash"></i>
 {% trans "Remove" %}
 </button>
 </form>
@@ -184,7 +175,7 @@
 
 </div>
 
-<div class="col-md-6">
+<div class="col-lg-6">
 
 <form action="{% url "add-user" project=object.slug %}" method="post">
 {% csrf_token %}

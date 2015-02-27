@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -63,4 +63,4 @@ class Command(BaseCommand):
                 }
         results = sorted(results.values(), key=lambda x: -x['count'])
         for result in results[:options['count']]:
-            print '%(count)5d %(check)20s %(source)s' % result
+            self.stdout.write('%(count)5d %(check)20s %(source)s' % result)

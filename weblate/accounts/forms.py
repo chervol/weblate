@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -19,7 +19,7 @@
 #
 
 from django import forms
-from django.utils.translation import ugettext_lazy as _, get_language
+from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth import authenticate
 from crispy_forms.helper import FormHelper
 
@@ -34,17 +34,17 @@ import unicodedata
 import weblate
 
 try:
-    import icu  # pylint: disable=import-error
-    HAS_ICU = True
+    import pyuca  # pylint: disable=import-error
+    HAS_PYUCA = True
 except ImportError:
-    HAS_ICU = False
+    HAS_PYUCA = False
 
 
 def remove_accents(input_str):
     """
     Removes accents from a string.
     """
-    nkfd_form = unicodedata.normalize('NFKD', unicode(input_str))
+    nkfd_form = unicodedata.normalize('NFKD', force_unicode(input_str))
     only_ascii = nkfd_form.encode('ASCII', 'ignore')
     return only_ascii
 
@@ -53,20 +53,18 @@ def sort_choices(choices):
     '''
     Sorts choices alphabetically.
 
-    Either using cmp or ICU.
+    Either using cmp or pyuca.
     '''
-    if not HAS_ICU:
+    if not HAS_PYUCA:
         return sorted(
             choices,
-            key=lambda tup: remove_accents(tup[1])
+            key=lambda tup: remove_accents(tup[1]).lower()
         )
     else:
-        locale = icu.Locale(get_language())
-        collator = icu.Collator.createInstance(locale)
+        collator = pyuca.Collator()
         return sorted(
             choices,
-            key=lambda tup: tup[1],
-            cmp=collator.compare
+            key=lambda tup: collator.sort_key(force_unicode(tup[1]))
         )
 
 
@@ -83,16 +81,16 @@ class NoStripEmailField(forms.EmailField):
 
 class UsernameField(forms.RegexField):
     def __init__(self, *args, **kwargs):
+        help_text = _(
+            'Username may contain only letters, '
+            'numbers and following characters: @ . + - _'
+        )
         kwargs['max_length'] = 30
-        kwargs['min_length'] = 4
         kwargs['regex'] = r'^[\w.@+-]+$'
-        kwargs['help_text'] = _('At least four characters long.')
+        kwargs['help_text'] = help_text
         kwargs['label'] = _('Username')
         kwargs['error_messages'] = {
-            'invalid': _(
-                'This value may contain only letters, '
-                'numbers and following characters: @ . + - _'
-            )
+            'invalid': help_text,
         }
         kwargs['required'] = True
         self.valid = None
@@ -373,8 +371,8 @@ class CaptchaRegistrationForm(RegistrationForm):
         '''
         Validation for captcha.
         '''
-        if (self.tampering
-                or not self.captcha.validate(self.cleaned_data['captcha'])):
+        if (self.tampering or
+                not self.captcha.validate(self.cleaned_data['captcha'])):
             raise forms.ValidationError(
                 _('Please check your math and try again.')
             )

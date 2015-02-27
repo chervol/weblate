@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -25,13 +25,16 @@
 from weblate.settings_example import *
 import os
 
-if 'TRAVIS_DATABASE' in os.environ:
-    if os.environ['TRAVIS_DATABASE'] == 'mysql':
+if 'CI_DATABASE' in os.environ:
+    if os.environ['CI_DATABASE'] == 'mysql':
         DATABASES['default']['ENGINE'] = 'django.db.backends.mysql'
         DATABASES['default']['NAME'] = 'weblate'
         DATABASES['default']['USER'] = 'root'
         DATABASES['default']['PASSWORD'] = ''
-    elif os.environ['TRAVIS_DATABASE'] == 'postgresql':
+        DATABASES['default']['OPTIONS'] = {
+            'init_command': 'SET NAMES utf8, wait_timeout=28800',
+        }
+    elif os.environ['CI_DATABASE'] == 'postgresql':
         DATABASES['default']['ENGINE'] = \
             'django.db.backends.postgresql_psycopg2'
         DATABASES['default']['NAME'] = 'weblate'
@@ -43,7 +46,7 @@ if 'TRAVIS_DATABASE' in os.environ:
 ADMINS = (('Weblate test', 'noreply@weblate.org'), )
 
 # Different root for test repos
-GIT_ROOT = os.path.join(BASE_DIR, 'test-repos')
+DATA_DIR = os.path.join(BASE_DIR, '..', 'data-test')
 
 # Avoid migrating during testsuite
 SOUTH_TESTS_MIGRATE = False

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Weblate 1.2\n"
 "Report-Msgid-Bugs-To: weblate@lists.cihar.com\n"
-"POT-Creation-Date: 2014-10-30 10:41+0100\n"
+"POT-Creation-Date: 2015-02-20 11:45+0100\n"
 "PO-Revision-Date: 2014-10-21 19:41+0200\n"
 "Last-Translator: Burak Yavuz <hitowerdigit@hotmail.com>\n"
 "Language-Team: Turkish <https://hosted.weblate.org/projects/weblate/"
@@ -205,28 +205,28 @@ msgid "Clear"
 msgstr "Temizle"
 
 #. Translators: Verb for copy operation
-#: weblate/media/loader-bootstrap.js:66
+#: weblate/media/loader-bootstrap.js:158
 msgid "Copy"
 msgstr "Kopyala"
 
-#: weblate/media/loader-bootstrap.js:84
+#: weblate/media/loader-bootstrap.js:177
 #, c-format
 msgid "The request for machine translation using %s has failed:"
 msgstr "%s kullanarak makine çevirisi için istek başarısız oldu:"
 
-#: weblate/media/loader-bootstrap.js:96
+#: weblate/media/loader-bootstrap.js:189
 msgid "The request for machine translation has failed:"
 msgstr "Makine çevirisi için istek başarısız oldu:"
 
-#: weblate/media/loader-bootstrap.js:144
+#: weblate/media/loader-bootstrap.js:250
 msgid "Sort this column"
 msgstr "Bu sütuna göre sırala"
 
-#: weblate/media/loader-bootstrap.js:230
+#: weblate/media/loader-bootstrap.js:337
 msgid "Error while loading page:"
 msgstr "Sayfa yüklenirken hata oldu:"
 
-#: weblate/media/loader-bootstrap.js:471
+#: weblate/media/loader-bootstrap.js:613
 msgid "There are some unsaved changes, are you sure you want to leave?"
 msgstr ""
 "Bazı kaydedilmemiş değişiklikler var, böyle bırakmak istediğinize emin "

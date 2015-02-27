@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -31,12 +31,8 @@ from django.utils import translation
 from django.contrib.auth.models import User
 from django.contrib.auth import views as auth_views
 from django.views.generic import TemplateView
-try:
-    # Not supported in Django 1.6
-    # pylint: disable=E0611
-    from django.contrib.auth import update_session_auth_hash
-except ImportError:
-    update_session_auth_hash = None
+from django.contrib.auth import update_session_auth_hash
+
 from urllib import urlencode
 
 from weblate.accounts.forms import (
@@ -162,7 +158,7 @@ def user_profile(request):
                 form.save()
 
             # Change language
-            set_lang(request.user, request=request, user=request.user)
+            set_lang(request, request.user.profile)
 
             # Redirect after saving (and possibly changing language)
             response = redirect('profile')
@@ -519,6 +515,9 @@ def reset_password(request):
             user = form.cleaned_data['email']
             user.set_unusable_password()
             user.save()
+            if not request.session.session_key:
+                request.session.create()
+            request.session['password_reset'] = True
             return complete(request, 'email')
     else:
         form = ResetForm()

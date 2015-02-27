@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -18,31 +18,25 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from weblate.trans.models import SubProject
+from weblate.trans.models import SubProject, IndexUpdate
 from django.contrib.sites.models import Site
 from django.shortcuts import render
 from django.contrib.admin.views.decorators import staff_member_required
 from django.utils.translation import ugettext as _
-from django.contrib import messages
 from django.conf import settings
 from weblate import settings_example
 from weblate import appsettings
 from weblate.accounts.avatar import HAS_LIBRAVATAR
-from weblate.accounts.forms import HAS_ICU
-from weblate.trans.util import get_configuration_errors, get_clean_env
+from weblate.accounts.forms import HAS_PYUCA
+from weblate.trans.util import get_configuration_errors
+from weblate.trans.ssh import (
+    generate_ssh_key, get_key_data, add_host_key,
+    get_host_keys, can_generate_key
+)
 import weblate
-import django
-
-import subprocess
-import hashlib
-import os
 
 # List of default domain names on which warn user
 DEFAULT_DOMAINS = ('example.net', 'example.com')
-
-# SSH key files
-KNOWN_HOSTS_FILE = os.path.expanduser('~/.ssh/known_hosts')
-RSA_KEY_FILE = os.path.expanduser('~/.ssh/id_rsa.pub')
 
 
 @staff_member_required
@@ -96,6 +90,13 @@ def performance(request):
         appsettings.OFFLOAD_INDEXING,
         'production-indexing',
     ))
+    if appsettings.OFFLOAD_INDEXING:
+        checks.append((
+            # Translators: Indexing is postponed to cron job
+            _('Indexing offloading processing'),
+            IndexUpdate.objects.count() < 20,
+            'production-indexing',
+        ))
     # Check for sane caching
     caches = settings.CACHES['default']['BACKEND'].split('.')[-1]
     if caches in ['MemcachedCache', 'DatabaseCache']:
@@ -127,8 +128,8 @@ def performance(request):
     checks.append((
         _('Email addresses'),
         (
-            settings.SERVER_EMAIL not in default_mails
-            and settings.DEFAULT_FROM_EMAIL not in default_mails
+            settings.SERVER_EMAIL not in default_mails and
+            settings.DEFAULT_FROM_EMAIL not in default_mails
         ),
         'production-email',
     ))
@@ -138,11 +139,11 @@ def performance(request):
         HAS_LIBRAVATAR,
         'production-avatar',
     ))
-    # PyICU library
+    # pyuca library
     checks.append((
-        _('PyICU library'),
-        HAS_ICU,
-        'production-pyicu',
+        _('pyuca library'),
+        HAS_PYUCA,
+        'production-pyuca',
     ))
     # Cookie signing key
     checks.append((
@@ -150,19 +151,11 @@ def performance(request):
         settings.SECRET_KEY != settings_example.SECRET_KEY,
         'production-secret',
     ))
-    # Allowed hosts for Django 1.5
-    if django.VERSION > (1, 5):
-        checks.append((
-            _('Allowed hosts'),
-            len(settings.ALLOWED_HOSTS) > 0,
-            'production-hosts',
-        ))
-
-    # Writable home directory
+    # Allowed hosts
     checks.append((
-        _('Home directory'),
-        os.access(os.path.expanduser('~'), os.W_OK),
-        'production-home'
+        _('Allowed hosts'),
+        len(settings.ALLOWED_HOSTS) > 0,
+        'production-hosts',
     ))
 
     # Cached template loader
@@ -191,158 +184,13 @@ def performance(request):
     )
 
 
-def parse_hosts_line(line):
-    """
-    Parses single hosts line into tuple host, key fingerprint.
-    """
-    host, keytype, key = line.strip().split(None, 3)[:3]
-    fp_plain = hashlib.md5(key.decode('base64')).hexdigest()
-    fingerprint = ':'.join(
-        [a + b for a, b in zip(fp_plain[::2], fp_plain[1::2])]
-    )
-    if host.startswith('|1|'):
-        # Translators: placeholder SSH hashed hostname
-        host = _('[hostname hashed]')
-    return host, keytype, fingerprint
-
-
-def get_host_keys():
-    """
-    Returns list of host keys.
-    """
-    try:
-        result = []
-        with open(KNOWN_HOSTS_FILE, 'r') as handle:
-            for line in handle:
-                if ' ssh-rsa ' in line or ' ecdsa-sha2-nistp256 ' in line:
-                    result.append(parse_hosts_line(line))
-    except IOError:
-        return []
-
-    return result
-
-
-def get_key_data():
-    """
-    Parses host key and returns it.
-    """
-    # Read key data if it exists
-    if os.path.exists(RSA_KEY_FILE):
-        with open(RSA_KEY_FILE) as handle:
-            key_data = handle.read()
-        key_type, key_fingerprint, key_id = key_data.strip().split(None, 2)
-        return {
-            'key': key_data,
-            'type': key_type,
-            'fingerprint': key_fingerprint,
-            'id': key_id,
-        }
-    return None
-
-
-def generate_ssh_key(request):
-    """
-    Generates SSH key.
-    """
-    # Create directory if it does not exist
-    key_dir = os.path.dirname(RSA_KEY_FILE)
-
-    # Try generating key
-    try:
-        if not os.path.exists(key_dir):
-            os.makedirs(key_dir)
-
-        subprocess.check_output(
-            [
-                'ssh-keygen', '-q',
-                '-N', '',
-                '-C', 'Weblate',
-                '-t', 'rsa',
-                '-f', RSA_KEY_FILE[:-4]
-            ],
-            stderr=subprocess.STDOUT,
-            env=get_clean_env(),
-        )
-        messages.success(request, _('Created new SSH key.'))
-    except (subprocess.CalledProcessError, OSError) as exc:
-        messages.error(
-            request,
-            _('Failed to generate key: %s') %
-            getattr(exc, 'output', str(exc))
-        )
-
-
-def add_host_key(request):
-    """
-    Adds host key for a host.
-    """
-    host = request.POST.get('host', '')
-    port = request.POST.get('port', '')
-    if len(host) == 0:
-        messages.error(request, _('Invalid host name given!'))
-    else:
-        cmdline = ['ssh-keyscan']
-        if port:
-            cmdline.extend(['-p', port])
-        cmdline.append(host)
-        try:
-            output = subprocess.check_output(
-                cmdline,
-                stderr=subprocess.STDOUT,
-                env=get_clean_env(),
-            )
-            keys = [
-                line
-                for line in output.splitlines()
-                if ' ssh-rsa ' in line or ' ecdsa-sha2-nistp256 ' in line
-            ]
-            for key in keys:
-                host, keytype, fingerprint = parse_hosts_line(key)
-                messages.warning(
-                    request,
-                    _(
-                        'Added host key for %(host)s with fingerprint '
-                        '%(fingerprint)s (%(keytype)s), '
-                        'please verify that it is correct.'
-                    ) % {
-                        'host': host,
-                        'fingerprint': fingerprint,
-                        'keytype': keytype,
-                    }
-                )
-            with open(KNOWN_HOSTS_FILE, 'a') as handle:
-                for key in keys:
-                    handle.write('%s\n' % key)
-        except (subprocess.CalledProcessError, OSError) as exc:
-            messages.error(
-                request,
-                _('Failed to get host key: %s') % exc.output
-            )
-
-
 @staff_member_required
 def ssh(request):
     """
     Show information and manipulate with SSH key.
     """
     # Check whether we can generate SSH key
-    try:
-        ret = subprocess.check_call(
-            ['which', 'ssh-keygen'],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=get_clean_env(),
-        )
-        can_generate = (ret == 0 and not os.path.exists(RSA_KEY_FILE))
-    except subprocess.CalledProcessError:
-        can_generate = False
-
-    if not os.access(os.path.expanduser('~'), os.W_OK):
-        can_generate = False
-        messages.error(
-            request,
-            _('Can not write to home directory, please check documentation.')
-        )
+    can_generate = can_generate_key()
 
     # Grab action type
     action = request.POST.get('action', None)

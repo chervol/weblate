@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -29,6 +29,8 @@ from whoosh.analysis import StandardAnalyzer, StemmingAnalyzer
 
 
 class DictionaryManager(models.Manager):
+    # pylint: disable=W0232
+
     def upload(self, request, project, language, fileobj, method):
         '''
         Handles dictionary update.

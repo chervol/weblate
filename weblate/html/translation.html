@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% load translations %}
-{% load url from future %}
 {% load crispy_forms_tags %}
 {% load i18n %}
 
@@ -9,7 +8,7 @@
 <li><a href="{{ object.subproject.get_absolute_url }}">{{ object.subproject.name }}</a></li>
 <li><a href="{{ object.get_absolute_url }}">{{ object.language }}</a></li>
 <a class="pull-right flip" href="{{ object.get_widgets_url }}">
-<img src="{% url 'widget-image-lang' project=object.subproject.project.slug widget='shields' color='badge' lang=object.language.code extension='svg' %}" />
+<img src="{% url 'widget-image-lang' project=object.subproject.project.slug widget='svg' color='badge' lang=object.language.code extension='svg' %}" />
 </a>
 {% endblock %}
 
@@ -21,7 +20,7 @@
   <li class="active"><a href="#overview" data-toggle="tab">{% trans "Overview" %}</a></li>
   <li><a href="#search" data-toggle="tab">{% trans "Search" %}</a></li>
   <li><a href="#history" data-toggle="tab">{% trans "History" %}</a></li>
-  <li><a href="#activity" data-toggle="tab" data-href="{% url 'view_activity_translation' project=object.subproject.project.slug subproject=object.subproject.slug lang=object.language.code %}">{% trans "Activity" %}</a></li>
+  <li><a href="#activity" data-toggle="tab" data-load="activity" data-yearly="{% url 'yearly_activity' project=object.subproject.project.slug subproject=object.subproject.slug lang=object.language.code %}" data-monthly="{% url 'monthly_activity' project=object.subproject.project.slug subproject=object.subproject.slug lang=object.language.code %}">{% trans "Activity" %}</a></li>
   <li><a href="#stats" data-toggle="tab">{% trans "Statistics" %}</a></li>
   <li class="dropdown">
     <a class="dropdown-toggle" data-toggle="dropdown" href="#">
@@ -73,10 +72,14 @@
 <div class="tab-pane active" id="overview">
 
 <div class="row">
-<div class="col-md-6">
+<div class="col-lg-6">
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Translation status" %}</h4></div>
   <div class="panel-body">
+
+{% if object.is_template %}
+{% show_message "info" _("This translation is being used as source strings within this component.") %}
+{% endif %}
 
 <table class="table">
 <tr>
@@ -93,6 +96,7 @@
 </table>
 
 {% include "legend.html" %}
+
 </div>
 </div>
 
@@ -109,7 +113,7 @@
 
 </div>
 
-<div class="col-md-6">
+<div class="col-lg-6">
 
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Project Information" %}</h4></div>
@@ -119,13 +123,23 @@
 {% with object.subproject as object %}
 {% include "subproject_info.html" %}
 {% endwith %}
+<tr>
+<th>{% trans "Translation file" %}</th>
+<td>
+{{ object.filename }}
+<a href="{% url 'download_translation' project=object.subproject.project.slug subproject=object.subproject.slug lang=object.language.code %}" title="{% trans "Download for an offline translation." %}"><i class="fa fa-download"></i></a>
+{% if object.supports_language_pack %}
+<a href="{% url 'download_language_pack' project=object.subproject.project.slug subproject=object.subproject.slug lang=object.language.code %}" title="{% trans "Download for using within an application." %}"><i class="fa fa-cog"></i></a>
+{% endif %}
+</td>
+</tr>
 </table>
 </div>
 </div>
 
 {% if other_translations %}
 <div class="panel panel-primary">
-  <div class="panel-heading"><h4 class="panel-title">{% trans "Other translations" %}</h4></div>
+  <div class="panel-heading"><h4 class="panel-title">{% trans "Other components" %}</h4></div>
   <div class="panel-body">
 {% with other_translations as translations %}
 {% include "list-translations.html" %}
@@ -152,7 +166,7 @@
 <div class="panel panel-primary">
 <div class="panel-heading"><h4 class="panel-title">{% trans "Automatic translation" %}</h4></div>
 <div class="panel-body">
-<p>{% trans "Automatic translation takes existing translations in this project and applies them to the current resource. It can be used to push translations to a different branch, to fix inconsistent translations or to translate a new resource using translation memory." %}</p>
+<p>{% trans "Automatic translation takes existing translations in this project and applies them to the current component. It can be used to push translations to a different branch, to fix inconsistent translations or to translate a new component using translation memory." %}</p>
 {% csrf_token %}
 <table>
 {{ autoform.as_table }}
@@ -222,7 +236,7 @@
 
 <div class="tab-pane" id="search">
 <div class="row">
-<div class="col-md-6">
+<div class="col-lg-6">
 
 <form action="{{ object.get_translate_url }}" method="GET">
 <div class="panel panel-primary">
@@ -239,7 +253,7 @@
 </div>
 
 {% if review_form %}
-<div class="col-md-6">
+<div class="col-lg-6">
 <form action="{{ object.get_translate_url }}" method="GET">
 <div class="panel panel-primary">
 <div class="panel-heading"><h4 class="panel-title">{% trans "Review" %}</h4></div>
@@ -261,7 +275,7 @@
 
 <div class="tab-pane" id="stats">
 <div class="row">
-<div class="col-md-6">
+<div class="col-lg-6">
 <div class="panel panel-primary">
 <div class="panel-heading"><h4 class="panel-title">{% trans "Statistics" %}</h4></div>
 <div class="panel-body">
@@ -308,7 +322,7 @@
 </div>
 
 
-<div class="col-md-6">
+<div class="col-lg-6">
 <div class="panel panel-primary">
 <div class="panel-heading"><h4 class="panel-title">{% trans "Last activity" %}</h4></div>
 <div class="panel-body">
@@ -332,15 +346,7 @@
 
 </div>
 
-<div class="tab-pane" id="activity">
-<div class="panel panel-primary">
-<div class="panel-heading"><h4 class="panel-title">{% trans "Activity" %}</h4></div>
-<div class="panel-body">
-<p>{% trans "Loading…" %}</p>
-</div>
-
-</div>
-</div>
+{% include "activity-tab.html" %}
 
 </div>
 

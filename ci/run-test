@@ -1,0 +1,8 @@
+#!/bin/sh
+# Testsuite executor
+set -e
+set -x
+
+./manage.py check
+./manage.py migrate --noinput --traceback
+coverage run --source=. ./manage.py test -v 2 $CI_RUN_TESTS

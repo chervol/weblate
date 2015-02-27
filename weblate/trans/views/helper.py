@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -83,7 +83,7 @@ def get_project_translation(request, project=None, subproject=None, lang=None):
     else:
         translation = None
         if subproject is not None:
-            # Subproject defined?
+            # Component defined?
             subproject = get_subproject(request, project, subproject)
             project = subproject.project
         elif project is not None:

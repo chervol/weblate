@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -25,15 +25,16 @@ Whoosh based full text search.
 from whoosh.fields import SchemaClass, TEXT, ID
 from whoosh.filedb.filestore import FileStorage
 from whoosh import qparser
-from django.db.models.signals import post_syncdb
+from django.db.models.signals import post_migrate
 from django.db.utils import IntegrityError
 from django.db import transaction
 from weblate import appsettings
 from whoosh.writing import AsyncWriter, BufferedWriter
 from django.dispatch import receiver
 from weblate.lang.models import Language
+from weblate.trans.data import data_dir
 
-STORAGE = FileStorage(appsettings.WHOOSH_INDEX)
+STORAGE = FileStorage(data_dir('whoosh'))
 
 
 class TargetSchema(SchemaClass):
@@ -42,6 +43,7 @@ class TargetSchema(SchemaClass):
     '''
     checksum = ID(stored=True, unique=True)
     target = TEXT()
+    comment = TEXT()
 
 
 class SourceSchema(SchemaClass):
@@ -51,9 +53,10 @@ class SourceSchema(SchemaClass):
     checksum = ID(stored=True, unique=True)
     source = TEXT()
     context = TEXT()
+    location = TEXT()
 
 
-@receiver(post_syncdb)
+@receiver(post_migrate)
 def create_index(sender=None, **kwargs):
     '''
     Automatically creates storage directory.
@@ -83,6 +86,7 @@ def update_source_unit_index(writer, unit):
         checksum=unicode(unit.checksum),
         source=unicode(unit.source),
         context=unicode(unit.context),
+        location=unicode(unit.location),
     )
 
 
@@ -92,7 +96,8 @@ def update_target_unit_index(writer, unit):
     '''
     writer.update_document(
         checksum=unicode(unit.checksum),
-        target=unicode(unit.target)
+        target=unicode(unit.target),
+        comment=unicode(unit.comment),
     )
 
 
@@ -102,7 +107,12 @@ def get_source_index():
     '''
     if not STORAGE.index_exists('source'):
         create_source_index()
-    return STORAGE.open_index('source')
+    index = STORAGE.open_index('source')
+    if 'location' not in index.schema:
+        writer = index.writer()
+        writer.add_field('location', TEXT)
+        writer.commit()
+    return index
 
 
 def get_target_index(lang):
@@ -112,14 +122,19 @@ def get_target_index(lang):
     name = 'target-%s' % lang
     if not STORAGE.index_exists(name):
         create_target_index(lang)
-    return STORAGE.open_index(name)
+    index = STORAGE.open_index(name)
+    if 'comment' not in index.schema:
+        writer = index.writer()
+        writer.add_field('comment', TEXT)
+        writer.commit()
+    return index
 
 
 def update_index(units, source_units=None):
     '''
     Updates fulltext index for given set of units.
     '''
-    languages = Language.objects.all()
+    languages = Language.objects.have_translation()
 
     # Default to same set for both updates
     if source_units is None:
@@ -166,10 +181,14 @@ def update_index_unit(unit, source=True):
                 )
         # pylint: disable=E0712
         except IntegrityError:
-            update = IndexUpdate.objects.get(unit=unit)
-            if not update.source and source:
-                update.source = True
-                update.save()
+            try:
+                update = IndexUpdate.objects.get(unit=unit)
+                if not update.source and source:
+                    update.source = True
+                    update.save()
+            except IndexUpdate.DoesNotExist:
+                # It did exist, but was deleted meanwhile
+                return
         return
 
     # Update source
@@ -194,30 +213,38 @@ def base_search(searcher, field, schema, query):
     return [result['checksum'] for result in searcher.search(parsed)]
 
 
-def fulltext_search(query, lang, source=True, context=True, target=True):
+def fulltext_search(query, lang, params):
     '''
     Performs fulltext search in given areas, returns set of checksums.
     '''
     checksums = set()
 
-    if source or context:
+    search = {
+        'source': False,
+        'context': False,
+        'target': False,
+        'comment': False,
+        'location': False,
+    }
+    search.update(params)
+
+    if search['source'] or search['context'] or search['location']:
         index = get_source_index()
         with index.searcher() as searcher:
-            if source:
-                checksums.update(
-                    base_search(searcher, 'source', SourceSchema(), query)
-                )
-            if context:
-                checksums.update(
-                    base_search(searcher, 'context', SourceSchema(), query)
-                )
+            for param in ('source', 'context', 'location'):
+                if search[param]:
+                    checksums.update(
+                        base_search(searcher, param, SourceSchema(), query)
+                    )
 
-    if target:
+    if search['target'] or search['comment']:
         index = get_target_index(lang)
         with index.searcher() as searcher:
-            checksums.update(
-                base_search(searcher, 'target', TargetSchema(), query)
-            )
+            for param in ('target', 'comment'):
+                if search[param]:
+                    checksums.update(
+                        base_search(searcher, param, TargetSchema(), query)
+                    )
 
     return checksums
 

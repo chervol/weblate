@@ -26,7 +26,6 @@ To upgrade database structure, you should run following commands:
 
 .. code-block:: sh
 
-    ./manage.py syncdb
     ./manage.py migrate
 
 To upgrade default set of privileges definitions (optional), run:
@@ -164,10 +163,78 @@ Several internal modules and paths have been renamed and changed, please adjust
 your :file:`settings.py` to match that (consult :file:`settings_example.py` for
 correct values).
 
-.. seealso:: 
-   
+.. seealso::
+
     If you are upgrading to Django 1.7 in same step, please consult
     :ref:`django-17`.
+
+Upgrade from 1.9 to 2.0
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Several internal modules and paths have been renamed and changed, please adjust
+your :file:`settings.py` to match that (consult :file:`settings_example.py` for
+correct values).
+
+This upgrade also requires you to upgrade python-social-auth from 0.1.x to
+0.2.x series, what will most likely to need to fake one of their migrations
+(see `Upgrading PSA with South`_ for more information):
+
+.. code-block:: sh
+
+    ./manage.py migrate --fake default
+
+.. _Upgrading PSA with South: http://psa.matiasaguirre.net/docs/installing.html#django-with-south
+
+.. seealso::
+
+    If you are upgrading to Django 1.7 in same step, please consult
+    :ref:`django-17`.
+
+Upgrade from 2.0 to 2.1
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The filesystem paths configuration has changed, the :setting:`GIT_ROOT` and
+:setting:`WHOOSH_INDEX` are gone and now all data resides in
+:setting:`DATA_DIR`. The existing data should be automatically migrated by
+supplied migration, but in case of non standard setup, you might need to move
+these manually.
+
+.. seealso::
+
+    If you are upgrading to Django 1.7 in same step, please consult
+    :ref:`django-17`.
+
+Upgrade from 2.1 to 2.2
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Weblate now supports fulltext search on additional fields. In order to make it
+work on existing data you need to update fulltext index by:
+
+.. code-block:: sh
+
+    ./manage.py rebuild_index --clean --all
+
+If you have some monolingual translations, Weblate now allows to edit template
+(source) strings as well. To see them, you need to reload translations, what
+will either happen automatically on next repository update or you can force it
+manually:
+
+.. code-block:: sh
+
+    ./manage.py loadpo --all
+
+.. seealso::
+
+    If you are upgrading to Django 1.7 in same step, please consult
+    :ref:`django-17`.
+
+Upgrade from 2.2 to 2.3
+~~~~~~~~~~~~~~~~~~~~~~~
+
+If you have not yet performed upgrade to Django 1.7 and newer, first upgrade to
+2.2 following instructions above. Weblate 2.3 no longer supports migration from
+Django 1.6.
+
 
 .. _django-17:
 

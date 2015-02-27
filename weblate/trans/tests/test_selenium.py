@@ -1,6 +1,7 @@
 from django.test import LiveServerTestCase
-from django.utils.unittest import SkipTest
+from unittest import SkipTest
 from selenium import webdriver
+from selenium.common.exceptions import WebDriverException
 from django.core.urlresolvers import reverse
 from django.core import mail
 from django.contrib.auth.models import User
@@ -17,9 +18,9 @@ from weblate.trans.tests.test_views import RegistrationTestMixin
 
 # Check whether we should run Selenium tests
 DO_SELENIUM = (
-    'DO_SELENIUM' in os.environ
-    and 'SAUCE_USERNAME' in os.environ
-    and 'SAUCE_ACCESS_KEY' in os.environ
+    ('DO_SELENIUM' in os.environ or 'CI_SELENIUM' in os.environ) and
+    'SAUCE_USERNAME' in os.environ and
+    'SAUCE_ACCESS_KEY' in os.environ
 )
 
 
@@ -54,8 +55,8 @@ class SeleniumTests(LiveServerTestCase, RegistrationTestMixin):
 
         if DO_SELENIUM:
             self.set_test_status(
-                errors == len(result.errors)
-                and failures == len(result.failures)
+                errors == len(result.errors) and
+                failures == len(result.failures)
             )
 
     @classmethod
@@ -126,6 +127,9 @@ class SeleniumTests(LiveServerTestCase, RegistrationTestMixin):
         password_input.send_keys('testpassword')
         self.driver.find_element_by_xpath('//input[@value="Login"]').click()
 
+        # Wait for submit
+        time.sleep(1)
+
         # Load profile
         self.driver.find_element_by_id('profile-button').click()
 
@@ -188,7 +192,12 @@ class SeleniumTests(LiveServerTestCase, RegistrationTestMixin):
 
         # Delete all cookies
         if clear:
-            self.driver.delete_all_cookies()
+            try:
+                self.driver.delete_all_cookies()
+            except WebDriverException as error:
+                # This usually happens when browser fails to delete some
+                # of the cookies for whatever reason.
+                print 'Ignoring: {0}'.format(error)
 
         # Confirm account
         self.driver.get(url)

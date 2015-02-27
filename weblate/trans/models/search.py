@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -22,7 +22,7 @@ from django.db import models
 
 
 class IndexUpdate(models.Model):
-    unit = models.ForeignKey('Unit', unique=True)
+    unit = models.OneToOneField('Unit')
     source = models.BooleanField(default=True)
 
     class Meta(object):

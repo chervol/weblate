@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -25,8 +25,5 @@ class Command(WeblateLangCommand):
     help = 'updates checks for units'
 
     def handle(self, *args, **options):
-        units = self.get_units(*args, **options)
-
-        # Invoke check for every unit
-        for unit in units.iterator():
+        for unit in self.iterate_units(*args, **options):
             unit.run_checks()

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -22,9 +22,7 @@ File format specific behavior.
 '''
 from django.utils.translation import ugettext_lazy as _
 from translate.storage.lisa import LISAfile
-from translate.storage.properties import (
-    propunit, propfile, javafile, javautf8file
-)
+from translate.storage.properties import propunit, propfile
 from translate.storage.xliff import xliffunit
 from translate.storage.po import pounit, pofile
 from translate.storage.php import phpunit
@@ -34,12 +32,11 @@ from translate.storage import mo
 from translate.storage import factory
 from weblate.trans.util import get_string, join_plural, add_configuration_error
 from translate.misc import quote
-from weblate.trans.util import get_clean_env
+from weblate.trans.util import get_clean_env, calculate_checksum
 import weblate
 import subprocess
 import os.path
 import re
-import hashlib
 import traceback
 import importlib
 import __builtin__
@@ -99,12 +96,12 @@ class FileUnit(object):
         '''
         Returns comma separated list of locations.
         '''
-        # XLIFF and PHP are special in ttkit - it uses locations for what
+        # JSON, XLIFF and PHP are special in ttkit - it uses locations for what
         # is context in other formats
-        if (isinstance(self.mainunit, xliffunit)
-                or isinstance(self.mainunit, javafile)
-                or isinstance(self.mainunit, javautf8file)
-                or isinstance(self.mainunit, phpunit)):
+        if (isinstance(self.mainunit, xliffunit) or
+                isinstance(self.mainunit, propunit) or
+                isinstance(self.mainunit, JsonUnit) or
+                isinstance(self.mainunit, phpunit)):
             return ''
         result = ', '.join(self.mainunit.getlocations())
         # Do not try to handle relative locations in Qt TS, see
@@ -166,18 +163,18 @@ class FileUnit(object):
         reason do not correctly set source/target attributes.
         '''
         return (
-            hasattr(self.mainunit, 'name')
-            and hasattr(self.mainunit, 'value')
-            and hasattr(self.mainunit, 'translation')
+            hasattr(self.mainunit, 'name') and
+            hasattr(self.mainunit, 'value') and
+            hasattr(self.mainunit, 'translation')
         )
 
     def get_source(self):
         '''
         Returns source string from a ttkit unit.
         '''
-        if (isinstance(self.mainunit, tsunit)
-                and self.template is None
-                and self.mainunit.hasplural()):
+        if (isinstance(self.mainunit, tsunit) and
+                self.template is None and
+                self.mainunit.hasplural()):
             # Need to apply special magic for plurals here
             # as there is no singlular/plural in the source string
             return join_plural([
@@ -209,9 +206,9 @@ class FileUnit(object):
         '''
         if self.unit is None:
             return ''
-        if (isinstance(self.unit, tsunit)
-                and not self.unit.isreview()
-                and not self.unit.istranslated()):
+        if (isinstance(self.unit, tsunit) and
+                not self.unit.isreview() and
+                not self.unit.istranslated()):
             # For Qt ts, empty translated string means source should be used
             return self.get_source()
         if self.is_unit_key_value():
@@ -240,10 +237,10 @@ class FileUnit(object):
                 return ''
             else:
                 return context[0]
-        elif (isinstance(self.mainunit, (pounit, JsonUnit))
-              and self.template is not None):
-            # Monolingual PO files
-            return self.template.source
+        elif (isinstance(self.mainunit, (pounit, JsonUnit)) and
+              self.template is not None):
+            # Monolingual JSON files
+            return self.template.getid()
         else:
             context = self.mainunit.getcontext()
         if self.is_unit_key_value() and context == '':
@@ -265,17 +262,20 @@ class FileUnit(object):
         We use MD5 as it is faster than SHA1.
         '''
         if self.checksum is None:
-            md5 = hashlib.md5()
             if self.template is None:
-                md5.update(self.get_source().encode('utf-8'))
-            md5.update(self.get_context().encode('utf-8'))
-            self.checksum = md5.hexdigest()
+                self.checksum = calculate_checksum(
+                    self.get_source(), self.get_context()
+                )
+            else:
+                self.checksum = calculate_checksum(
+                    None, self.get_context()
+                )
 
         return self.checksum
 
     def get_contentsum(self):
         '''
-        Returns checksum of source string and conntext, used for quick lookup.
+        Returns checksum of source string and context, used for quick lookup.
 
         We use MD5 as it is faster than SHA1.
         '''
@@ -283,10 +283,9 @@ class FileUnit(object):
             return self.get_checksum()
 
         if self.contentsum is None:
-            md5 = hashlib.md5()
-            md5.update(self.get_source().encode('utf-8'))
-            md5.update(self.get_context().encode('utf-8'))
-            self.contentsum = md5.hexdigest()
+            self.contentsum = calculate_checksum(
+                self.get_source(), self.get_context()
+            )
 
         return self.contentsum
 
@@ -369,8 +368,8 @@ class FileFormat(object):
         '''
         # Workaround for _ created by interactive interpreter and
         # later used instead of gettext by ttkit
-        if ('_' in __builtin__.__dict__
-                and not callable(__builtin__.__dict__['_'])):
+        if ('_' in __builtin__.__dict__ and
+                not callable(__builtin__.__dict__['_'])):
             del __builtin__.__dict__['_']
 
         # Add missing mode attribute to Django file wrapper
@@ -386,9 +385,9 @@ class FileFormat(object):
         """
         # Tuple style loader, import from translate toolkit
         module_name, class_name = cls.loader
-        module = importlib.import_module(
-            'translate.storage.%s' % module_name
-        )
+        if '.' not in module_name:
+            module_name = 'translate.storage.{0}'.format(module_name)
+        module = importlib.import_module(module_name)
 
         # Get the class
         return getattr(module, class_name)
@@ -420,8 +419,8 @@ class FileFormat(object):
         # Remember template
         self.template_store = template_store
         # Set language (needed for some which do not include this)
-        if (language_code is not None
-                and self.store.gettargetlanguage() is None):
+        if (language_code is not None and
+                self.store.gettargetlanguage() is None):
             self.store.settargetlanguage(language_code)
 
     @property
@@ -430,8 +429,8 @@ class FileFormat(object):
         Checks whether class is using template.
         '''
         return (
-            (self.monolingual or self.monolingual is None)
-            and self.template_store is not None
+            (self.monolingual or self.monolingual is None) and
+            self.template_store is not None
         )
 
     def _find_unit_template(self, context):
@@ -439,6 +438,11 @@ class FileFormat(object):
         template_ttkit_unit = self.template_store.findid(context)
         # We search by ID when using template
         ttkit_unit = self.store.findid(context)
+        # Do not use findid as it does not work for empty translations
+        if ttkit_unit is None:
+            for search_unit in self.store.units:
+                if search_unit.getid() == context:
+                    ttkit_unit = search_unit
         # We always need new unit to translate
         if ttkit_unit is None:
             ttkit_unit = template_ttkit_unit
@@ -458,8 +462,18 @@ class FileFormat(object):
         # Find is broken for propfile, ignore results
         if len(found_units) > 0 and not isinstance(self.store, propfile):
             for ttkit_unit in found_units:
+                # XLIFF is special in ttkit - it uses locations for what
+                # is context in other formats
+                if isinstance(ttkit_unit, xliffunit):
+                    ttkit_unit_context = ttkit_unit.getlocations()
+                    if len(ttkit_unit.getlocations()) == 0:
+                        ttkit_unit_context = ''
+                    else:
+                        ttkit_unit_context = ttkit_unit.getlocations()[0]
+                else:
+                    ttkit_unit_context = ttkit_unit.getcontext()
                 # Does context match?
-                if ttkit_unit.getcontext() == context:
+                if ttkit_unit_context == context:
                     return (FileUnit(ttkit_unit), False)
         else:
             # Fallback to manual find for value based files
@@ -502,9 +516,9 @@ class FileFormat(object):
 
         # Adjust Content-Type header if needed
         header = self.store.parseheader()
-        if ('Content-Type' not in header
-                or 'charset=CHARSET' in header['Content-Type']
-                or 'charset=ASCII' in header['Content-Type']):
+        if ('Content-Type' not in header or
+                'charset=CHARSET' in header['Content-Type'] or
+                'charset=ASCII' in header['Content-Type']):
             kwargs['Content_Type'] = 'text/plain; charset=UTF-8'
 
         self.store.updateheader(**kwargs)
@@ -613,15 +627,12 @@ class FileFormat(object):
         return code
 
     @classmethod
-    def get_language_filename(cls, path, mask, code):
+    def get_language_filename(cls, mask, code):
         """
         Return full filename of a language file for given
         path, filemask and language code.
         """
-        return os.path.join(
-            path,
-            mask.replace('*', cls.get_language_code(code))
-        )
+        return mask.replace('*', cls.get_language_code(code))
 
     @staticmethod
     def add_language(filename, code, base):
@@ -813,7 +824,12 @@ class AndroidFormat(FileFormat):
     loader = ('aresource', 'AndroidResourceFile')
     monolingual = True
     # Whitespace is ignored in this format
-    check_flags = ('ignore-begin-space', 'ignore-end-space')
+    check_flags = (
+        'ignore-begin-space',
+        'ignore-end-space',
+        'ignore-begin-newline',
+        'ignore-end-newline',
+    )
 
     @classmethod
     def supports_new_language(cls):
@@ -843,15 +859,22 @@ class AndroidFormat(FileFormat):
 class JSONFormat(FileFormat):
     name = _('JSON file')
     format_id = 'json'
-    loader = ('jsonl10n', 'JsonFile')
+    loader = ('weblate.trans.aresource', 'JsonFile')
 
-    def _find_unit_template(self, context):
-        """
-        We need to prepend . here to get proper ID.
-        """
-        return super(JSONFormat, self)._find_unit_template(
-            '.' + context
-        )
+    @classmethod
+    def supports_new_language(cls):
+        '''
+        Checks whether we can create new language file.
+        '''
+        return True
+
+    @staticmethod
+    def add_language(filename, code, base):
+        '''
+        Adds new language file.
+        '''
+        with open(filename, 'w') as output:
+            output.write('{}\n')
 
 
 FILE_FORMAT_CHOICES = [

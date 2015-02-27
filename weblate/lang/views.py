@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -48,6 +48,8 @@ def show_language(request, lang):
     projects = Project.objects.all_acl(request.user)
     translations = obj.translation_set.enabled().filter(
         subproject__project__in=projects
+    ).order_by(
+        'subproject__project__slug', 'subproject__slug'
     )
 
     return render(

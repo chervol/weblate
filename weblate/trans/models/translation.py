@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -38,7 +38,7 @@ from weblate.lang.models import Language
 from weblate.trans.formats import AutoFormat, StringIOMode
 from weblate.trans.checks import CHECKS
 from weblate.trans.models.unit import Unit
-from weblate.trans.models.unitdata import Check, Suggestion, Comment
+from weblate.trans.models.unitdata import Suggestion
 from weblate.trans.util import (
     get_site_url, translation_percent, split_plural,
 )
@@ -51,6 +51,8 @@ from weblate.trans.util import get_clean_env
 
 
 class TranslationManager(models.Manager):
+    # pylint: disable=W0232
+
     def check_sync(self, subproject, code, path, force=False, request=None):
         '''
         Parses translation meta info and creates/updates translation object.
@@ -59,7 +61,8 @@ class TranslationManager(models.Manager):
         translation, dummy = self.get_or_create(
             language=lang,
             language_code=code,
-            subproject=subproject
+            subproject=subproject,
+            defaults={'filename': path},
         )
         if translation.filename != path:
             force = True
@@ -127,6 +130,7 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
     total_words = models.IntegerField(default=0)
     failing_checks = models.IntegerField(default=0, db_index=True)
     have_suggestion = models.IntegerField(default=0, db_index=True)
+    have_comment = models.IntegerField(default=0, db_index=True)
 
     enabled = models.BooleanField(default=True, db_index=True)
 
@@ -148,9 +152,12 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
             ('overwrite_translation', "Can overwrite with translation upload"),
             ('author_translation', "Can define author of translation upload"),
             ('commit_translation', "Can force commiting of translation"),
-            ('update_translation', "Can update translation from"),
-            ('push_translation', "Can push translations to remote"),
-            ('reset_translation', "Can reset translations to match remote"),
+            ('update_translation', "Can update translation from VCS"),
+            ('push_translation', "Can push translations to remote VCS"),
+            (
+                'reset_translation',
+                "Can reset translations to match remote VCS"
+            ),
             ('automatic_translation', "Can do automatic translation"),
             ('lock_translation', "Can lock whole translation project"),
             ('use_mt', "Can use machine translation"),
@@ -184,6 +191,13 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
         Raises an error if user is not allowed to access this project.
         '''
         self.subproject.project.check_acl(request)
+
+    def is_template(self):
+        """Checks whether this is template translation
+
+        This means that translations should be propagated as sources to others.
+        """
+        return self.filename == self.subproject.template
 
     def clean(self):
         '''
@@ -259,48 +273,38 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
             }
         )
 
-    def is_locked(self, request=None, multi=False):
+    def is_locked(self, request=None):
         '''
         Check whether the translation is locked and
         possibly emits messages if request object is
         provided.
         '''
+        return (
+            self.is_user_locked(request) or
+            self.subproject.locked
+        )
 
-        prj_lock = self.subproject.locked
-        usr_lock, own_lock = self.is_user_locked(request, True)
-
-        # Calculate return value
-        if multi:
-            return (prj_lock, usr_lock, own_lock)
-        else:
-            return prj_lock or usr_lock
-
-    def is_user_locked(self, request=None, multi=False):
+    def is_user_locked(self, request=None):
         '''
         Checks whether there is valid user lock on this translation.
         '''
         # Any user?
         if self.lock_user is None:
-            result = (False, False)
+            return False
 
         # Is lock still valid?
         elif self.lock_time < datetime.now():
             # Clear the lock
             self.create_lock(None)
 
-            result = (False, False)
+            return False
 
         # Is current user the one who has locked?
         elif request is not None and self.lock_user == request.user:
-            result = (False, True)
+            return False
 
         else:
-            result = (True, False)
-
-        if multi:
-            return result
-        else:
-            return result[0]
+            return True
 
     def create_lock(self, user, explicit=False):
         '''
@@ -451,60 +455,6 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
                 raise
         return self._store
 
-    def cleanup_deleted(self, deleted_contentsums):
-        '''
-        Removes stale checks/comments/suggestions for deleted units.
-        '''
-        for contentsum in deleted_contentsums:
-            units = Unit.objects.filter(
-                translation__language=self.language,
-                translation__subproject__project=self.subproject.project,
-                contentsum=contentsum
-            )
-            if units.exists():
-                # There are other units as well, but some checks
-                # (eg. consistency) needs update now
-                for unit in units:
-                    unit.run_checks()
-                continue
-
-            # Last unit referencing to these checks
-            Check.objects.filter(
-                project=self.subproject.project,
-                language=self.language,
-                contentsum=contentsum
-            ).delete()
-            # Delete suggestons referencing this unit
-            Suggestion.objects.filter(
-                project=self.subproject.project,
-                language=self.language,
-                contentsum=contentsum
-            ).delete()
-            # Delete translation comments referencing this unit
-            Comment.objects.filter(
-                project=self.subproject.project,
-                language=self.language,
-                contentsum=contentsum
-            ).delete()
-            # Check for other units with same source
-            other_units = Unit.objects.filter(
-                translation__subproject__project=self.subproject.project,
-                contentsum=contentsum
-            )
-            if not other_units.exists():
-                # Delete source comments as well if this was last reference
-                Comment.objects.filter(
-                    project=self.subproject.project,
-                    language=None,
-                    contentsum=contentsum
-                ).delete()
-                # Delete source checks as well if this was last reference
-                Check.objects.filter(
-                    project=self.subproject.project,
-                    language=None,
-                    contentsum=contentsum
-                ).delete()
-
     def check_sync(self, force=False, request=None, change=None):
         '''
         Checks whether database is in sync with git and possibly does update.
@@ -545,13 +495,13 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
 
             # Check if unit is new and untranslated
             was_new = (
-                was_new
-                or (is_new and not newunit.translated)
-                or (
-                    not newunit.translated
-                    and newunit.translated != newunit.old_translated
-                )
-                or (newunit.fuzzy and newunit.fuzzy != newunit.old_fuzzy)
+                was_new or
+                (is_new and not newunit.translated) or
+                (
+                    not newunit.translated and
+                    newunit.translated != newunit.old_translated
+                ) or
+                (newunit.fuzzy and newunit.fuzzy != newunit.old_fuzzy)
             )
 
             # Update position
@@ -571,7 +521,7 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
         # Following query can get huge, so we should find better way
         # to delete stale units, probably sort of garbage collection
 
-        # We should also do cleanup on source stings tracking objects
+        # We should also do cleanup on source strings tracking objects
 
         # Get lists of stale units to delete
         units_to_delete = self.unit_set.exclude(
@@ -579,20 +529,16 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
         )
         # We need to resolve this now as otherwise list will become empty after
         # delete
-        deleted_contentsums = list(
-            units_to_delete.values_list('contentsum', flat=True)
-        )
+        deleted_units = units_to_delete.count()
+
         # Actually delete units
         units_to_delete.delete()
-
-        # Cleanup checks for deleted units
-        self.cleanup_deleted(deleted_contentsums)
 
         # Update revision and stats
         self.update_stats()
 
         # Cleanup checks cache if there were some deleted units
-        if len(deleted_contentsums) > 0:
+        if deleted_units:
             self.invalidate_cache()
 
         # Store change entry
@@ -632,7 +578,7 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
 
     def get_git_blob_hash(self):
         '''
-        Returns current Git blob hash for file.
+        Returns current VCS blob hash for file.
         '''
         ret = self.repository.get_object_hash(self.get_filename())
 
@@ -652,6 +598,7 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
             BooleanSum('translated'),
             BooleanSum('has_failing_check'),
             BooleanSum('has_suggestion'),
+            BooleanSum('has_comment'),
             Count('id'),
         )
 
@@ -663,6 +610,7 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
             self.translated = 0
             self.failing_checks = 0
             self.have_suggestion = 0
+            self.have_comment = 0
         else:
             self.total_words = stats['num_words__sum']
             self.total = stats['id__count']
@@ -670,6 +618,7 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
             self.translated = int(stats['translated__sum'])
             self.failing_checks = int(stats['has_failing_check__sum'])
             self.have_suggestion = int(stats['has_suggestion__sum'])
+            self.have_comment = int(stats['has_comment__sum'])
 
         # Count translated words
         self.translated_words = self.unit_set.filter(
@@ -775,6 +724,7 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
             'language_name': self.language.name,
             'subproject': self.subproject.name,
             'resource': self.subproject.name,
+            'component': self.subproject.name,
             'project': self.subproject.project.name,
             'total': self.total,
             'fuzzy': self.fuzzy,
@@ -881,9 +831,9 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
             self.__git_commit(author, timestamp, sync)
 
         # Push if we should
-        if (self.subproject.project.push_on_commit
-                and not skip_push
-                and self.can_push()):
+        if (self.subproject.project.push_on_commit and
+                not skip_push and
+                self.can_push()):
             self.subproject.do_push(request, force_commit=False)
 
         return True
@@ -907,9 +857,9 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
                 return False, None
 
             # Check for changes
-            if (not add
-                    and unit.target == pounit.get_target()
-                    and unit.fuzzy == pounit.is_fuzzy()):
+            if (not add and
+                    unit.target == pounit.get_target() and
+                    unit.fuzzy == pounit.is_fuzzy()):
                 return False, pounit
 
             # Store translations
@@ -930,8 +880,7 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
 
             # Update po file header
             po_revision_date = (
-                datetime.now().strftime('%Y-%m-%d %H:%M')
-                + poheader.tzstring()
+                datetime.now().strftime('%Y-%m-%d %H:%M') + poheader.tzstring()
             )
 
             # Prepare headers to update
@@ -964,7 +913,7 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
             self.commit_pending(request, author)
             # save translation changes
             self.store.save()
-            # commit Git repo if needed
+            # commit VCS repo if needed
             self.git_commit(request, author, timezone.now(), sync=True)
 
         return True, pounit
@@ -996,7 +945,7 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
         for check in CHECKS:
             if not CHECKS[check].source:
                 continue
-            cnt = self.get_failing_checks(check)
+            cnt = self.unit_set.count_type(check, self)
             if cnt > 0:
                 result.append((
                     check,
@@ -1031,7 +980,7 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
         ]
 
         # Untranslated strings
-        nottranslated = self.unit_set.count_type('untranslated', self)
+        nottranslated = self.total - self.translated
         if nottranslated > 0:
             result.append((
                 'untranslated',
@@ -1041,12 +990,11 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
             ))
 
         # Fuzzy strings
-        fuzzy = self.unit_set.count_type('fuzzy', self)
-        if fuzzy > 0:
+        if self.fuzzy > 0:
             result.append((
                 'fuzzy',
                 _('Fuzzy strings'),
-                fuzzy,
+                self.fuzzy,
                 'danger',
             ))
 
@@ -1082,12 +1030,11 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
                 ))
 
         # Grab comments
-        targetcomments = self.unit_set.count_type('targetcomments', self)
-        if targetcomments > 0:
+        if self.have_comment > 0:
             result.append((
-                'targetcomments',
+                'comments',
                 _('Strings with comments'),
-                targetcomments,
+                self.have_comment,
                 'info',
             ))
 
@@ -1188,7 +1135,7 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
             # Grab database unit
             try:
                 dbunit = self.unit_set.filter(checksum=checksum)[0]
-            except Unit.DoesNotExist:
+            except (Unit.DoesNotExist, IndexError):
                 continue
 
             # Indicate something new
@@ -1265,14 +1212,6 @@ class Translation(models.Model, URLMixin, PercentMixin, LoggerMixin):
             ret = self.merge_suggestions(request, store)
 
         return ret, store.count_units()
-
-    def get_failing_checks(self, check):
-        '''
-        Returns number of units with failing checks.
-
-        By default for all checks or check type can be specified.
-        '''
-        return self.unit_set.count_type(check, self)
 
     def invalidate_cache(self, cache_type=None):
         '''

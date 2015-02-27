@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -26,16 +26,21 @@ from weblate import appsettings
 
 DONATE = 'http://weblate.org/donate/'
 GITTIP = 'https://www.gittip.com/nijel/'
+WEBLATE = 'http://weblate.org/',
 
 
 class AdvertisementManager(models.Manager):
+    # pylint: disable=W0232
+
     _fallback_choices = (
         (_('Donate to Weblate at {0}'), DONATE),
         (_('Support Weblate at {0}'), GITTIP),
+        (_('More information about Weblate can be found at {0}'), WEBLATE),
     )
     _fallback_choices_html = (
         (_('Donate to Weblate'), DONATE),
         (_('Support Weblate using GitTip'), GITTIP),
+        (_('More information about Weblate'), WEBLATE),
     )
 
     def get_advertisement(self, placement):

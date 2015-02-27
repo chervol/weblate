@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -53,6 +53,8 @@ NAME_MAPPING = {
     False: ugettext_lazy('Bad configuration'),
     None: ugettext_lazy('Possible configuration')
 }
+
+FLAG_TEMPLATE = u'<i title="{0}" class="fa fa-{1}"></i>'
 
 
 def fmt_whitespace(value):
@@ -149,6 +151,17 @@ def format_translation(value, language=None, diff=None, search_match=None,
         'items': parts,
         'language': language,
     }
+
+
+@register.simple_tag
+def check_severity(check):
+    '''
+    Returns check severity, or it's id if check is not known.
+    '''
+    try:
+        return CHECKS[check].severity
+    except KeyError:
+        return 'info'
 
 
 @register.simple_tag
@@ -449,3 +462,76 @@ def words_progress(translation):
     checks = translation.get_failing_checks_words_percent()
 
     return translation_progress_data(translated, fuzzy, checks)
+
+
+@register.simple_tag
+def get_state_flags(unit):
+    """
+    Returns state flags.
+    """
+    flags = []
+
+    if unit.fuzzy:
+        flags.append((
+            _('Message is fuzzy'),
+            'question-circle text-danger'
+        ))
+    elif not unit.translated:
+        flags.append((
+            _('Message is not translated'),
+            'times-circle text-danger'
+        ))
+    elif unit.has_failing_check:
+        flags.append((
+            _('Message has failing checks'),
+            'exclamation-circle text-warning'
+        ))
+    elif unit.translated:
+        flags.append((
+            _('Message is translated'),
+            'check-circle text-success'
+        ))
+
+    if unit.has_comment:
+        flags.append((
+            _('Message has comments'),
+            'comment text-info'
+        ))
+
+    return mark_safe(
+        '\n'.join([FLAG_TEMPLATE.format(*flag) for flag in flags])
+    )
+
+
+@register.simple_tag
+def get_location_links(unit):
+    """
+    Generates links to source files where translation was used.
+    """
+    ret = []
+
+    # Do we have any locations?
+    if len(unit.location) == 0:
+        return ''
+
+    # Is it just an ID?
+    if unit.location.isdigit():
+        return _('unit ID %s') % unit.location
+
+    # Go through all locations separated by comma
+    for location in unit.location.split(','):
+        location = location.strip()
+        if location == '':
+            continue
+        location_parts = location.split(':')
+        if len(location_parts) == 2:
+            filename, line = location_parts
+        else:
+            filename = location_parts[0]
+            line = 0
+        link = unit.translation.subproject.get_repoweb_link(filename, line)
+        if link is None:
+            ret.append('%s' % location)
+        else:
+            ret.append('<a href="%s">%s</a>' % (link, location))
+    return mark_safe('\n'.join(ret))

@@ -5,6 +5,9 @@
 .navbar {
     margin-bottom: 0;
 }
+.navbar-brand > img {
+    display: inline-block;
+}
 h1 {
     font-size: 24px;
     margin-top: 0;
@@ -57,7 +60,11 @@ footer a {
     color: #737373;
 }
 .progress-checks {
+  background-image:    -moz-linear-gradient(45deg, rgba(255, 255, 255, .15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, .15) 50%, rgba(255, 255, 255, .15) 75%, transparent 75%, transparent);
+  background-image:        -webkit-gradient(45deg, rgba(255, 255, 255, .15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, .15) 50%, rgba(255, 255, 255, .15) 75%, transparent 75%, transparent);
   background-image: -webkit-linear-gradient(45deg, rgba(255, 255, 255, .15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, .15) 50%, rgba(255, 255, 255, .15) 75%, transparent 75%, transparent);
+  background-image:      -o-linear-gradient(45deg, rgba(255, 255, 255, .15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, .15) 50%, rgba(255, 255, 255, .15) 75%, transparent 75%, transparent);
+  background-image:     -ms-linear-gradient(45deg, rgba(255, 255, 255, .15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, .15) 50%, rgba(255, 255, 255, .15) 75%, transparent 75%, transparent);
   background-image:         linear-gradient(45deg, rgba(255, 255, 255, .15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, .15) 50%, rgba(255, 255, 255, .15) 75%, transparent 75%, transparent);
   background-size: 40px 40px;
 }
@@ -75,15 +82,25 @@ footer a {
 
 .paginatoraddon {
     display: inline-block;
-    padding-left: 0px;
+    padding-left: 0;
     vertical-align: top;
     margin: 5px 0;
 }
 .paginatoraddon label:after {
     content: ":";
 }
+.translator .form-group {
+    margin-bottom: 5px;
+}
+.translator .list-group {
+    margin-bottom: 0;
+}
+.translator .checkbox {
+    margin-bottom: 0;
+    margin-top: 0;
+}
 .paginatoraddon .form-group {
-    margin-bottom: 0px;
+    margin-bottom: 0;
 }
 .paginatoraddon .form-control {
     display: inline-block;
@@ -140,37 +157,6 @@ td .list-group {
     margin-bottom: 0;
 }
 
-.glyphicon-spin {
-    -moz-animation: glyphicon-spin 1s infinite linear;
-    -o-animation: glyphicon-spin 1s infinite linear;
-    -webkit-animation: glyphicon-spin 1s infinite linear;
-    animation: glyphicon-spin 1s infinite linear;
-}
-
-@-moz-keyframes glyphicon-spin {
-    0% { -moz-transform: rotate(0deg); }
-  100% { -moz-transform: rotate(359deg); }
-}
-
-@-webkit-keyframes glyphicon-spin {
-    0% { -webkit-transform: rotate(0deg); }
-  100% { -webkit-transform: rotate(359deg); }
-}
-
-@-o-keyframes glyphicon-spin {
-    0% { -o-transform: rotate(0deg); }
-  100% { -o-transform: rotate(359deg); }
-}
-
-@-ms-keyframes glyphicon-spin {
-    0% { -ms-transform: rotate(0deg); }
-  100% { -ms-transform: rotate(359deg); }
-}
-
-@keyframes glyphicon-spin {
-    0% { transform: rotate(0deg); }
-  100% { transform: rotate(359deg); }
-}
 .code-example {
     font-family: monospace;
     white-space: pre;
@@ -218,4 +204,32 @@ img.engage-icon {
 }
 .btn-desc {
     margin: 5px 0;
+}
+.fa-google {
+    color: #4285f4;
+}
+.fa-github {
+    color: #333;
+}
+.fa-bitbucket {
+    color: #205081;
+}
+.fa-facebook {
+    color: #3b5998;
+}
+.fl-opensuse {
+    color: #73ba25;
+}
+.fl-ubuntu {
+    color: #DD4814;
+}
+.fl-fedora {
+    color: #3c6eb4;
+}
+#columns-menu label {
+    font-weight: normal;
+}
+.ct-chart .ct-series.ct-series-a .ct-bar {
+    stroke: #337AB7;
+    stroke-width: 15px;
 }

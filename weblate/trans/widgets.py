@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -20,6 +20,7 @@
 
 from django.conf import settings
 from django.utils.translation import ugettext as _
+from django.template.loader import render_to_string
 from PIL import Image, ImageDraw
 from weblate.trans.fonts import is_base, get_font
 from weblate.appsettings import ENABLE_HTTPS
@@ -163,8 +164,8 @@ class Widget(object):
                 (
                     self.progress['x'],
                     self.progress['y'],
-                    self.progress['x']
-                    + self.progress['width'] / 100.0 * self.percent,
+                    self.progress['x'] +
+                    self.progress['width'] / 100.0 * self.percent,
                     self.progress['y'] + self.progress['height']
                 ),
                 fill=COLOR_DATA[self.color]['bar'],
@@ -192,8 +193,7 @@ class Widget(object):
             outline=COLOR_DATA[self.color]['border']
         )
 
-    def render_text(self, text, lang_text, base_font_size, bold_font,
-                    pos_x, pos_y):
+    def get_text(self, text, lang_text=None):
         # Use language variant if desired
         if self.lang is not None and lang_text is not None:
             text = lang_text
@@ -201,7 +201,11 @@ class Widget(object):
                 text = text.replace('English', self.lang.name)
 
         # Format text
-        text = text % self.params
+        return text % self.params
+
+    def render_text(self, text, lang_text, base_font_size, bold_font,
+                    pos_x, pos_y):
+        text = self.get_text(text, lang_text)
         base_font = is_base(text)
         offset = 0
 
@@ -369,3 +373,52 @@ class ShieldsBadgeWidget(Widget):
         raise Exception('Not supported')
 
 register_widget(ShieldsBadgeWidget)
+
+
+class SVGBadgeWidget(Widget):
+    name = 'svg'
+    colors = ('badge', )
+    extension = 'svg'
+    content_type = 'image/svg+xml; charset=utf-8'
+    order = 80
+
+    def render(self):
+        translated_text = self.get_text(_('translated'))
+        font = get_font(11, False, is_base(translated_text))
+        translated_width = font.getsize(translated_text)[0] + 12
+
+        percent_text = '{0}%'.format(int(self.percent))
+        font = get_font(11, False, is_base(percent_text))
+        percent_width = font.getsize(percent_text)[0] + 7
+
+        if self.percent > 90:
+            color = '#4c1'
+        elif self.percent > 75:
+            color = '#dfb317'
+        else:
+            color = '#e05d44'
+
+        self.image = render_to_string(
+            'badge.svg',
+            {
+                'translated_text': translated_text,
+                'percent_text': percent_text,
+                'translated_width': translated_width,
+                'percent_width': percent_width,
+                'width': translated_width + percent_width,
+                'color': color,
+                'translated_offset': translated_width / 2,
+                'percent_offset': translated_width + percent_width / 2,
+            }
+        )
+
+    def get_image(self):
+        return self.image
+
+    def render_texts(self):
+        '''
+        Text rendering method to be overridden.
+        '''
+        raise Exception('Not supported')
+
+register_widget(SVGBadgeWidget)

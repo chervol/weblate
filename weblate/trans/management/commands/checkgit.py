@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -29,5 +29,5 @@ class Command(WeblateCommand):
         Shows status of git repository in given projects.
         '''
         for subproject in self.get_subprojects(*args, **options):
-            print '%s:' % subproject
-            print subproject.repository.status()
+            self.stdout.write('%s:' % subproject)
+            self.stdout.write(subproject.repository.status())

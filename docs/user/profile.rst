@@ -18,7 +18,7 @@ User profile
 ------------
 
 User profile contains your preferences, name and email. Name and email
-are being used in Git commits, so keep this information accurate.
+are being used in VCS commits, so keep this information accurate.
 
 Languages
 +++++++++
@@ -46,6 +46,10 @@ Subscriptions
 You can subscribe to various notifications on :guilabel:`Subscriptions` tab.
 You will receive notifications for selected events on chosen projects for
 languages you have indicated for translation (see above).
+
+.. note::
+
+    You will not receive notifications for actions you've done.
 
 .. image:: ../images/profile-subscriptions.png
 

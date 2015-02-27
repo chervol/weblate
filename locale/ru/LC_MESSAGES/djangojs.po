@@ -7,9 +7,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: weblate@lists.cihar.com\n"
-"POT-Creation-Date: 2014-10-30 10:41+0100\n"
-"PO-Revision-Date: 2014-03-21 15:09+0200\n"
-"Last-Translator: Dmitri GOULIAEV <dmitri+weblate@gouliaev.info>\n"
+"POT-Creation-Date: 2015-02-20 11:45+0100\n"
+"PO-Revision-Date: 2015-02-06 07:54+0200\n"
+"Last-Translator: Ivan Vantu5z <vantu5z@mail.ru>\n"
 "Language-Team: Russian <https://hosted.weblate.org/projects/weblate/"
 "javascript/ru/>\n"
 "Language: ru\n"
@@ -18,35 +18,35 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
 "%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 1.9-dev\n"
+"X-Generator: Weblate 2.2-dev\n"
 
 #: weblate/media/js/bootstrap-datepicker.js:1421
 msgid "Sunday"
-msgstr ""
+msgstr "Воскресенье"
 
 #: weblate/media/js/bootstrap-datepicker.js:1421
 msgid "Monday"
-msgstr ""
+msgstr "Понедельник"
 
 #: weblate/media/js/bootstrap-datepicker.js:1421
 msgid "Tuesday"
-msgstr ""
+msgstr "Вторник"
 
 #: weblate/media/js/bootstrap-datepicker.js:1421
 msgid "Wednesday"
-msgstr ""
+msgstr "Среда"
 
 #: weblate/media/js/bootstrap-datepicker.js:1421
 msgid "Thursday"
-msgstr ""
+msgstr "Четверг"
 
 #: weblate/media/js/bootstrap-datepicker.js:1421
 msgid "Friday"
-msgstr ""
+msgstr "Пятница"
 
 #: weblate/media/js/bootstrap-datepicker.js:1421
 msgid "Saturday"
-msgstr ""
+msgstr "Суббота"
 
 #: weblate/media/js/bootstrap-datepicker.js:1422
 msgid "Sun"
@@ -106,52 +106,52 @@ msgstr ""
 
 #: weblate/media/js/bootstrap-datepicker.js:1424
 msgid "January"
-msgstr ""
+msgstr "Январь"
 
 #: weblate/media/js/bootstrap-datepicker.js:1424
 msgid "February"
-msgstr ""
+msgstr "Февраль"
 
 #: weblate/media/js/bootstrap-datepicker.js:1424
 msgid "March"
-msgstr ""
+msgstr "Март"
 
 #: weblate/media/js/bootstrap-datepicker.js:1424
 msgid "April"
-msgstr ""
+msgstr "Апрель"
 
 #: weblate/media/js/bootstrap-datepicker.js:1424
 #: weblate/media/js/bootstrap-datepicker.js:1425
 msgid "May"
-msgstr ""
+msgstr "Май"
 
 #: weblate/media/js/bootstrap-datepicker.js:1424
 msgid "June"
-msgstr ""
+msgstr "Июнь"
 
 #: weblate/media/js/bootstrap-datepicker.js:1424
 msgid "July"
-msgstr ""
+msgstr "Июль"
 
 #: weblate/media/js/bootstrap-datepicker.js:1424
 msgid "August"
-msgstr ""
+msgstr "Август"
 
 #: weblate/media/js/bootstrap-datepicker.js:1424
 msgid "September"
-msgstr ""
+msgstr "Сентябрь"
 
 #: weblate/media/js/bootstrap-datepicker.js:1424
 msgid "October"
-msgstr ""
+msgstr "Октябрь"
 
 #: weblate/media/js/bootstrap-datepicker.js:1424
 msgid "November"
-msgstr ""
+msgstr "Ноябрь"
 
 #: weblate/media/js/bootstrap-datepicker.js:1424
 msgid "December"
-msgstr ""
+msgstr "Декабрь"
 
 #: weblate/media/js/bootstrap-datepicker.js:1425
 msgid "Jan"
@@ -199,35 +199,35 @@ msgstr ""
 
 #: weblate/media/js/bootstrap-datepicker.js:1426
 msgid "Today"
-msgstr ""
+msgstr "Сегодня"
 
 #: weblate/media/js/bootstrap-datepicker.js:1427
 msgid "Clear"
-msgstr ""
+msgstr "Очистить"
 
 #. Translators: Verb for copy operation
-#: weblate/media/loader-bootstrap.js:66
+#: weblate/media/loader-bootstrap.js:158
 msgid "Copy"
 msgstr "Копировать"
 
-#: weblate/media/loader-bootstrap.js:84
+#: weblate/media/loader-bootstrap.js:177
 #, c-format
 msgid "The request for machine translation using %s has failed:"
 msgstr "Запрос на машинный перевод, использующий %s, удался:"
 
-#: weblate/media/loader-bootstrap.js:96
+#: weblate/media/loader-bootstrap.js:189
 msgid "The request for machine translation has failed:"
 msgstr "Запрос на машинный перевод не удался:"
 
-#: weblate/media/loader-bootstrap.js:144
+#: weblate/media/loader-bootstrap.js:250
 msgid "Sort this column"
 msgstr "Отсортировать этой колонке"
 
-#: weblate/media/loader-bootstrap.js:230
+#: weblate/media/loader-bootstrap.js:337
 msgid "Error while loading page:"
-msgstr ""
+msgstr "Ошибка загрузки страницы:"
 
-#: weblate/media/loader-bootstrap.js:471
+#: weblate/media/loader-bootstrap.js:613
 msgid "There are some unsaved changes, are you sure you want to leave?"
 msgstr "Есть несохранённые изменения.  Вы уверены, что хотите выйти?"
 

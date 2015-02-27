@@ -1,5 +1,7 @@
 -r requirements.txt
-PyICU
+#pyuca
+https://github.com/SmileyChris/pyuca/archive/master.zip
 pyLibravatar
+pydns
 babel
-South>=1.0
+Mercurial>=2.8

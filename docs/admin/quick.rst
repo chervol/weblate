@@ -20,11 +20,12 @@ Installing from sources
    connection (possibly adding user and creating the database). Check
    :ref:`config` for Weblate specific configuration options.
 
+#. Create database which will be used by Weblate, :ref:`database-setup`.
+
 #. Build Django tables and initial data:
 
    .. code-block:: sh
 
-        ./manage.py syncdb
         ./manage.py migrate
         ./scripts/generate-locales # If you are using Git checkout
 
@@ -40,6 +41,17 @@ Using prebuilt appliance
 #. Everything should be set up immediately after boot, though you will want
    to adjust some settings to improve security, see :ref:`appliance`.
 
+Installing on OpenShift
+-----------------------
+
+#. You can install Weblate on OpenShift PaaS directly from its git repository using the OpenShift Client Tools:
+
+   .. parsed-literal::
+
+        rhc -aweblate app create -t python-2.7 --from-code \https://github.com/nijel/weblate.git#weblate-|version| --no-git
+
+#. After installation everything should be preconfigured and you can immediately start to add a translation
+   project as described below. For more information, including on how to retrieve the generated admin password, see :ref:`openshift`.
 
 Adding translation
 ------------------
@@ -49,16 +61,16 @@ Adding translation
 
    All you need to specify here is project name and it's website.
 
-#. Create resource which is the real resource for translating - it points to
-   Git repository and selects which files to translate. See :ref:`resource`
+#. Create component which is the real object for translating - it points to
+   VCS repository and selects which files to translate. See :ref:`component`
    for more details.
 
-   The important fields here being resource name, Git repository address and
+   The important fields here being component name, VCS repository address and
    mask for finding translatable files. Weblate supports wide range of formats
    including Gettext PO files, Android resource strings, OS X string properties,
    Java properties or Qt Linguist files, see :ref:`formats` for more details.
 
 
 #. Once above is completed (it can be lengthy process depending on size of
-   your Git repository and number of messages to translate), you can start
+   your VCS repository and number of messages to translate), you can start
    translating.

@@ -6,8 +6,8 @@ Configuration
 
 .. _auto-workflow:
 
-How to create automatic worflow?
---------------------------------
+How to create automatic workflow?
+---------------------------------
 
 Weblate can handle all the translation things semi-automatically for you. If
 you will give it push access to your repository, the translations can live
@@ -15,7 +15,7 @@ without interaction unless some merge conflict occurs.
 
 1. Set up your git repository to tell Weblate whenever there is any change, see
    :ref:`hooks` for information how to do it.
-2. Set push URL at your :ref:`resource` in Weblate, this will allow Weblate
+2. Set push URL at your :ref:`component` in Weblate, this will allow Weblate
    to push changes to your repository.
 3. Enable push on commit on your :ref:`project` in Weblate, this will make
    Weblate push changes to your repository whenever they are committed at Weblate.
@@ -64,7 +64,7 @@ How do I translate several branches at once?
 --------------------------------------------
 
 Weblate supports pushing translation changes within one :ref:`project`. For
-every :ref:`resource` which has it enabled (the default behavior), the change
+every :ref:`component` which has it enabled (the default behavior), the change
 made is automatically propagated to others. This way the translations are kept
 synchronized even if the branches themselves have already diverged quite a lot
 and it is not possible to simply merge translation changes between them.
@@ -82,7 +82,7 @@ How to export Git repository weblate uses?
 ------------------------------------------
 
 There is nothing special about the repository, it lives under
-:setting:`GIT_ROOT` directory and is named as `project/resource/`. If you
+:setting:`DATA_DIR` directory and is named as :file:`vcs/<project>/<component>/`. If you
 have SSH access to this machine, you can use the repository directly.
 
 For anonymous access you might want to run git server and let it serve the
@@ -122,6 +122,17 @@ database. Please open admin interface and edit default site name and domain
 installation).
 
 .. seealso:: https://docs.djangoproject.com/en/dev/ref/contrib/sites/
+
+Why are all commits committed by Weblate <noreply@weblate.org>?
+---------------------------------------------------------------
+
+This is default commiter name configured when you create translation component.
+You can also change it in the administration at any time.
+
+The author of every commit (when underlaying VCS supports it) is still recorded
+correctly as an user who has made the translation.
+
+.. seealso:: :ref:`component`
 
 Usage
 +++++
@@ -238,8 +249,8 @@ The easiest way to do this is to run:
 
 .. code-block:: sh
 
-    # Go to GIT_ROOT directory
-    cd weblate/repos
+    # Go to DATA_DIR directory
+    cd data/vcs
     # Compress all Git repositories
     for d in */* ; do
         pushd $d
@@ -249,7 +260,7 @@ The easiest way to do this is to run:
 
 .. seealso::
 
-    :setting:`GIT_ROOT`
+    :setting:`DATA_DIR`
 
 .. _faq-ft-slow:
 
@@ -300,18 +311,21 @@ This can happen with SQLite database as it is not powerful enough for some
 relations used within Weblate. The only way to fix this is to use some more
 capable database, see :ref:`production-database` for more information.
 
-.. seealso:: :ref:`production-database`, `Django's databases <https://docs.djangoproject.com/en/1.6/ref/databases/>`_
+.. seealso:: :ref:`production-database`, `Django's databases <https://docs.djangoproject.com/en/1.7/ref/databases/>`_
 
 Features
 ++++++++
 
 .. _faq-vcs:
 
-Does Weblate support other VCS than Git?
-----------------------------------------
+Does Weblate support other VCS than Git and Mercurial?
+------------------------------------------------------
 
-Weblate does not have native support for anything else than Git, however Git is
-versatile system, which allows plugging in `remote helpers`_ for other VCS as well.
+Weblate currently does not have native support for anything else than Git and
+Mercurial, but it is possible to write backends for other VCSes.
+
+You can also use Git `remote helpers`_ for supporting other VCS as well, but
+this usually leads to smaller or bigger problems, so be prepared to debug them.
 
 At this time, helpers for Bazaar and Mercurial are available within separate
 repositories on GitHub: `git-remote-hg`_ and `git-remote-bzr`_. You can
@@ -336,15 +350,15 @@ For ``hello`` repository from selenic.com with Mercurial use::
 
 .. warning::
 
-    Please be prepared to some incovenience when using something else than Git,
+    Please be prepared to some incovenience when using Git remote helpers,
     for example with Mercurial, the remote helper sometimes tends to create new
     tip when pushing changes back.
 
 .. note::
     
     For native support of other VCS, Weblate requires distributed VCS and could
-    be probably adjusted to work with anything else than Git, but somebody has
-    to implement this support.
+    be probably adjusted to work with anything else than Git and Mercurial, but
+    somebody has to implement this support.
 
 How does Weblate credit translators?
 ------------------------------------
@@ -360,7 +374,7 @@ Why does Weblate force to have show all po files in single tree?
 ----------------------------------------------------------------
 
 Weblate was designed in a way that every po file is represented as single
-resource. This is beneficial for translators, that they know what they are
+component. This is beneficial for translators, that they know what they are
 actually translating. If you feel your project should be translated as one,
 consider merging these po files. It will make life easier even for translators
 not using Weblate.

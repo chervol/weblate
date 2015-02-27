@@ -1,19 +1,18 @@
 {% load translations %}
 {% load i18n %}
 {% load static %}
-{% load url from future %}
 
 {% for item in unitdata %}
 <tr id="row-status-{{ item.unit.checksum }}">
 <td>{{ item.unit.position }}</td>
 <td>
-{{ item.unit.get_location_links }}
-{% if item.unit.context %}
+{% get_location_links item.unit %}
+{% if item.unit.context and not object.subproject.has_template %}
 {% format_translation item.unit.context search_match=search_query %}
 {% endif %}
 </td>
 <td>
-<a href="{% url 'translate' project=object.subproject.project.slug subproject=object.subproject.slug lang=object.language.code %}?search_id={{ search_id }}&amp;offset={{ item.offset }}" class="btn btn-xs btn-default pull-right flip" title="{% trans "Open in full editor" %}"><span class="glyphicon glyphicon-edit"></span> {% trans "Edit" %}</a>
+<a href="{% url 'translate' project=object.subproject.project.slug subproject=object.subproject.slug lang=object.language.code %}?sid={{ search_id }}&amp;offset={{ item.offset }}" class="btn btn-xs btn-default pull-right flip" title="{% trans "Open in full editor" %}"><i class="fa fa-pencil"></i> {% trans "Edit" %}</a>
 </td>
 </tr>
 <tr id="row-source-{{ item.unit.checksum }}">
@@ -22,15 +21,14 @@
 </tr>
 <tr id="row-edit-{{ item.unit.checksum }}">
 <td>
-<span id="loading-{{ item.unit.checksum }}"  class="glyphicon glyphicon-refresh glyphicon-spin" style="display: none"></span>
-<span id="status-{{ item.unit.checksum }}"></span>
+<i id="loading-{{ item.unit.checksum }}" class="fa fa-spinner fa-spin" style="display: none"></i>
+<i id="status-{{ item.unit.checksum }}"></i>
 </td>
 <td colspan="2" class="translator">
 <form action="{% url 'save_zen' project=object.subproject.project.slug subproject=object.subproject.slug lang=object.language.code %}" method="post">
 {% csrf_token %}
 {{ item.form.checksum }}
 {{ item.form.target }}
-<br />
 {{ item.form.fuzzy }} <label for="id_{{ item.unit.checksum }}_fuzzy">{% trans "Fuzzy" context "Message is fuzzy" %}</label>
 </form>
 </td>

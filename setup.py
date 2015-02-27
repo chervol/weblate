@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -30,12 +30,13 @@ os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 setup(
     name='Weblate',
-    version='2.0',
+    version='2.3',
     packages=[
         'weblate',
         'weblate.accounts',
         'weblate.accounts.management',
         'weblate.accounts.management.commands',
+        'weblate.accounts.templatetags',
         'weblate.lang',
         'weblate.lang.management',
         'weblate.lang.management.commands',
@@ -48,9 +49,10 @@ setup(
         'weblate.trans.machine',
         'weblate.trans.management',
         'weblate.trans.management.commands',
-        'weblate.trans.south_migrations',
-        'weblate.accounts.south_migrations',
-        'weblate.lang.south_migrations',
+        'weblate.trans.templatetags',
+        'weblate.trans.migrations',
+        'weblate.accounts.migrations',
+        'weblate.lang.migrations',
     ],
     package_data={
         'weblate': [
@@ -74,10 +76,15 @@ setup(
             'media/bootstrap/css/*.*',
             'media/bootstrap/fonts/*.*',
             'media/bootstrap/js/*.*',
+            'media/font-awesome/fonts/*.*',
+            'media/font-awesome/css/*.*',
+            'media/font-linux/*.*',
         ],
     },
     license='GPLv3+',
-    description='A web-based translation tool with tight Git integration',
+    description=(
+        'A web-based translation tool with tight version control integration'
+    ),
     long_description=README,
     url='http://weblate.org/',
     download_url='https://github.com/nijel/weblate',

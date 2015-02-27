@@ -121,7 +121,7 @@ logged in users.
 
 Basically `Users` are meant as regular translators and `Managers` for
 developers who need more control over the translation - they can force
-committing changes to git, push changes upstream (if Weblate is configured to do
+committing changes to VCS, push changes upstream (if Weblate is configured to do
 so) or disable translation (eg. when there are some major changes happening
 upstream). 
 
@@ -147,26 +147,28 @@ Can overwrite with translation upload [Users, Managers]
 Can define author of translation upload [Managers]
     Allows to define custom authorship when uploading translation file.
 Can force committing of translation [Managers]
-    Can force Git commit in the web interface.
-Can see git repository URL [Users, Managers, Guests]
-    Can see Git repository URL inside Weblate
-Can update translation from git [Managers]
-    Can force Git pull in the web interface.
-Can push translations to remote git [Managers]
-    Can force Git push in the web interface.
+    Can force VCS commit in the web interface.
+Can see VCS repository URL [Users, Managers, Guests]
+    Can see VCS repository URL inside Weblate
+Can update translation from VCS [Managers]
+    Can force VCS pull in the web interface.
+Can push translations to remote VCS [Managers]
+    Can force VCS push in the web interface.
 Can do automatic translation using other project strings [Managers]
-    Can do automatic translation based on strings from other resources
+    Can do automatic translation based on strings from other components
 Can lock whole translation project [Managers]
     Can lock translation for updates, useful while doing some major changes 
     in the project.
-Can reset translations to match remote git [Managers]
-    Can reset Git repository to match remote git.
+Can reset translations to match remote VCS [Managers]
+    Can reset VCS repository to match remote VCS.
 Can save translation [Users, Managers]
     Can save translation (might be disabled with :ref:`voting`).
 Can accept suggestion [Users, Managers]
     Can accept suggestion (might be disabled with :ref:`voting`).
 Can delete suggestion [Users, Managers]
     Can delete suggestion (might be disabled with :ref:`voting`).
+Can delete comment [Managers]
+    Can delete comment.
 Can vote for suggestion [Users, Managers]
     Can vote for suggestion (see :ref:`voting`).
 Can override suggestion state [Managers]
@@ -190,6 +192,8 @@ Can manage ACL rules for a project [Managers]
     Can add users to ACL controlled projects (see :ref:`acl`)
 Can edit priority [Managers]
     Can adjust source string priority
+Can edit check flags [Managers]
+    Can adjust source string check flags
 
 .. _acl:
 
@@ -209,13 +213,14 @@ Additionally you can limit users access to individual projects. This feature is
 enabled by :guilabel:`Enable ACL` at Project configuration. Once you enable
 this, users without specific privilege 
 (:guilabel:`trans | project | Can access project NAME`) can not access this
-project.
+project. An user group with same name as a project is also automatically
+created to ease you management of the privilege.
 
 To allow access to this project, you have to add the privilege to do so either
 directly to given user or group of users in Django admin interface. Or using
 user management on project page as described in :ref:`manage-acl`.
 
-.. seealso:: https://docs.djangoproject.com/en/1.6/topics/auth/default/#auth-admin
+.. seealso:: https://docs.djangoproject.com/en/1.7/topics/auth/default/#auth-admin
 
 Managing users and groups
 -------------------------
@@ -227,6 +232,10 @@ available under :file:`/admin/` URL.
 
 Managing per project access control
 +++++++++++++++++++++++++++++++++++
+
+.. note::
+
+    This feature only works for ACL controlled projects, see :ref:`acl`.
 
 Users with :guilabel:`Can manage ACL rules for a project` privilege (see
 :ref:`privileges`) can also manage users in projects with access control

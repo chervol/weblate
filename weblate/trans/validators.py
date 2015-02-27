@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -18,16 +18,19 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 from django.core.exceptions import ValidationError
-from django.utils.translation import ugettext as _
+from django.utils.translation import ugettext as _, ugettext_lazy
 from weblate.trans.checks import CHECKS
 
-VALID_FLAGS = (
-    'rst-text',
-    'python-format',
-    'c-format',
-    'php-format',
-    'python-brace-format',
-)
+
+EXTRA_FLAGS = {
+    'rst-text': ugettext_lazy('RST text'),
+    'python-format': ugettext_lazy('Python format string'),
+    'c-format': ugettext_lazy('C format string'),
+    'php-format': ugettext_lazy('PHP format string'),
+    'python-brace-format': ugettext_lazy('Python brace format string'),
+}
+
+IGNORE_CHECK_FLAGS = set([CHECKS[x].ignore_string for x in CHECKS])
 
 
 def validate_repoweb(val):
@@ -96,9 +99,9 @@ def validate_check_flags(val):
     '''
     Validates check influencing flags.
     '''
+    if not val:
+        return
     for flag in val.split(','):
-        if flag in VALID_FLAGS:
-            continue
-        if flag.startswith('ignore-') and flag[7:] in CHECKS:
+        if flag in EXTRA_FLAGS or flag in IGNORE_CHECK_FLAGS:
             continue
         raise ValidationError(_('Invalid check flag: "%s"') % flag)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -118,7 +118,8 @@ def widgets(request, project):
 @cache_page(3600)
 def render_widget(request, project, widget='287x66', color=None, lang=None,
                   extension='png'):
-    obj = get_project(request, project)
+    # We intentionally skip ACL here to allow widget sharing
+    obj = get_project(request, project, skip_acl=True)
 
     # Handle language parameter
     if lang is not None:

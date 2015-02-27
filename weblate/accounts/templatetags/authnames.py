@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -22,16 +22,22 @@ Provides user friendly names for social authentication methods.
 """
 from django import template
 from django.utils.safestring import mark_safe
-from django.utils.html import escape
 
 register = template.Library()
 
 SOCIALS = {
-    'google': ('Google', ''),
-    'github': ('GitHub', ''),
-    'email': ('Email', ''),
-    'opensuse': ('openSUSE', ''),
+    'google': {'name': 'Google', 'fa_icon': 'google'},
+    'github': {'name': 'GitHub', 'fa_icon': 'github'},
+    'bitbucket': {'name': 'Bitbucket', 'fa_icon': 'bitbucket'},
+    'email': {'name': 'Email', 'fa_icon': 'at'},
+    'opensuse': {'name': 'openSUSE', 'fl_icon': 'opensuse'},
+    'ubuntu': {'name': 'Ubuntu', 'fl_icon': 'ubuntu'},
+    'fedora': {'name': 'Fedora', 'fl_icon': 'fedora'},
+    'facebook': {'name': 'Facebook', 'fa_icon': 'facebook'},
 }
+
+FA_SOCIAL_TEPMPLATE = u'<i class="fa fa-lg fa-{fa_icon}"></i> {name}'
+FL_SOCIAL_TEPMPLATE = u'<span class="fl fa-lg fl-{fl_icon}"></span> {name}'
 
 
 @register.simple_tag
@@ -41,11 +47,11 @@ def auth_name(auth):
     """
 
     if auth in SOCIALS:
-        return mark_safe(
-            '{0}{1}'.format(
-                SOCIALS[auth][1],
-                escape(SOCIALS[auth][0]),
-            )
-        )
+        auth_data = SOCIALS[auth]
+        if 'fa_icon' in auth_data:
+            return mark_safe(FA_SOCIAL_TEPMPLATE.format(**auth_data))
+        if 'fl_icon' in auth_data:
+            return mark_safe(FL_SOCIAL_TEPMPLATE.format(**auth_data))
+        return mark_safe(auth_data['name'])
 
     return auth

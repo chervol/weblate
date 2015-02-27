@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -63,6 +63,10 @@ def weblate_context(request):
         'demo_server': appsettings.DEMO_SERVER,
         'enable_avatars': appsettings.ENABLE_AVATARS,
         'enable_sharing': appsettings.ENABLE_SHARING,
+
+        'piwik_site_id': appsettings.PIWIK_SITE_ID,
+        'piwik_url': appsettings.PIWIK_URL,
+        'google_analytics_id': appsettings.GOOGLE_ANALYTICS_ID,
 
         'current_date': datetime.utcnow().strftime('%Y-%m-%d'),
         'current_year': datetime.utcnow().strftime('%Y'),

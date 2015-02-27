@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -19,8 +19,8 @@
 #
 
 from django.utils.translation import ugettext_lazy as _
-from django.db.models import Count
 from weblate.trans.checks.base import SourceCheck
+from weblate.trans.models.unitdata import Check
 import re
 
 # Matches (s) not followed by alphanumeric chars or at the end
@@ -72,7 +72,6 @@ class MultipleFailingCheck(SourceCheck):
     severity = 'warning'
 
     def check_source(self, source, unit):
-        from weblate.trans.models.unitdata import Check
         related = Check.objects.filter(
             contentsum=unit.contentsum,
             project=unit.translation.subproject.project
@@ -80,7 +79,5 @@ class MultipleFailingCheck(SourceCheck):
             language__isnull=True
         ).values(
             'language'
-        ).annotate(
-            Count('language')
-        )
-        return len(related) >= 2
+        ).distinct()
+        return related.count() >= 2

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -28,15 +28,17 @@ from django.forms import ValidationError
 from django.core.urlresolvers import reverse
 from crispy_forms.helper import FormHelper
 from weblate.lang.models import Language
-from weblate.trans.models import Unit
+from weblate.trans.models.unit import Unit, SEARCH_FILTERS
 from weblate.trans.models.source import PRIORITY_CHOICES
 from weblate.trans.checks import CHECKS
 from weblate.trans.specialchars import get_special_chars
+from weblate.trans.validators import validate_check_flags
+from weblate.accounts.forms import sort_choices
 from urllib import urlencode
 import weblate
 
 ICON_TEMPLATE = u'''
-<span class="glyphicon glyphicon-{0}"></span> {1}
+<i class="fa fa-{0}"></i> {1}
 '''
 BUTTON_TEMPLATE = u'''
 <button class="btn btn-default {0}" title="{1}" {2}>{3}</button>
@@ -63,15 +65,9 @@ PLURALS_TEMPLATE = u'''
 <p class="help-block pull-right flip"><a href="{0}">{1}</a></p>
 <p class="help-block">{2}</p>
 '''
-
-
-def escape_newline(value):
-    '''
-    Escapes newlines so that they are not lost in <textarea>.
-    '''
-    if len(value) >= 1 and value[0] == '\n':
-        return '\n' + value
-    return value
+COPY_TEMPLATE = u'''
+data-loading-text="{0}" data-href="{1}" data-checksum="{2}"
+'''
 
 
 class PluralTextarea(forms.Textarea):
@@ -84,9 +80,10 @@ class PluralTextarea(forms.Textarea):
         """
         groups = []
         # Copy button
-        extra_params = u'data-loading-text="{0}" data-href="{1}"'.format(
+        extra_params = COPY_TEMPLATE.format(
             ugettext(u'Loading…'),
             reverse('js-get', kwargs={'checksum': checksum}),
+            checksum,
         )
         groups.append(
             GROUP_TEMPLATE.format(
@@ -95,7 +92,7 @@ class PluralTextarea(forms.Textarea):
                     'copy-text',
                     ugettext('Fill in with source string'),
                     extra_params,
-                    ICON_TEMPLATE.format('transfer', ugettext('Copy'))
+                    ICON_TEMPLATE.format('clipboard', ugettext('Copy'))
                 )
             )
         )
@@ -171,7 +168,7 @@ class PluralTextarea(forms.Textarea):
             # Render textare
             textarea = super(PluralTextarea, self).render(
                 fieldname,
-                escape_newline(val),
+                val,
                 attrs
             )
             # Label for plural
@@ -404,18 +401,28 @@ class SearchForm(forms.Form):
         ),
         initial=False
     )
-    src = forms.BooleanField(
+    source = forms.BooleanField(
         label=_('Search in source strings'),
         required=False,
         initial=True
     )
-    tgt = forms.BooleanField(
+    target = forms.BooleanField(
         label=_('Search in target strings'),
         required=False,
         initial=True
     )
-    ctx = forms.BooleanField(
+    context = forms.BooleanField(
         label=_('Search in context strings'),
+        required=False,
+        initial=False
+    )
+    location = forms.BooleanField(
+        label=_('Search in location strings'),
+        required=False,
+        initial=False
+    )
+    comment = forms.BooleanField(
+        label=_('Search in comment strings'),
         required=False,
         initial=False
     )
@@ -428,7 +435,7 @@ class SearchForm(forms.Form):
             ('translated', _('Translated strings')),
             ('fuzzy', _('Fuzzy strings')),
             ('suggestions', _('Strings with suggestions')),
-            ('targetcomments', _('Strings with comments')),
+            ('comments', _('Strings with comments')),
             ('allchecks', _('Strings with any failing checks')),
         ] + [
             (check, CHECKS[check].description)
@@ -449,17 +456,19 @@ class SearchForm(forms.Form):
         cleaned_data = super(SearchForm, self).clean()
 
         # Default to fulltext / all strings
-        if 'search' in cleaned_data and cleaned_data['search'] == '':
+        if 'search' not in cleaned_data or cleaned_data['search'] == '':
             cleaned_data['search'] = 'ftx'
-        if 'type' in cleaned_data and cleaned_data['type'] == '':
+        if 'type' not in cleaned_data or cleaned_data['type'] == '':
             cleaned_data['type'] = 'all'
 
         # Default to source and target search
-        if (not cleaned_data['src']
-                and not cleaned_data['tgt']
-                and not cleaned_data['ctx']):
-            cleaned_data['src'] = True
-            cleaned_data['tgt'] = True
+        if (not cleaned_data['source'] and
+                not cleaned_data['target'] and
+                not cleaned_data['location'] and
+                not cleaned_data['comment'] and
+                not cleaned_data['context']):
+            cleaned_data['source'] = True
+            cleaned_data['target'] = True
 
         return cleaned_data
 
@@ -472,12 +481,9 @@ class SearchForm(forms.Form):
         if self.cleaned_data['q']:
             query['q'] = self.cleaned_data['q'].encode('utf-8')
             query['search'] = self.cleaned_data['search']
-            if self.cleaned_data['src']:
-                query['src'] = 'on'
-            if self.cleaned_data['tgt']:
-                query['tgt'] = 'on'
-            if self.cleaned_data['ctx']:
-                query['ctx'] = 'on'
+            for param in SEARCH_FILTERS:
+                if self.cleaned_data[param]:
+                    query[param] = 'on'
 
         if self.cleaned_data['type'] != 'all':
             query['type'] = self.cleaned_data['type']
@@ -554,7 +560,7 @@ class AutoForm(forms.Form):
         initial=False
     )
     subproject = forms.ChoiceField(
-        label=_('Subproject to use'),
+        label=_('Component to use'),
         required=False,
         initial=''
     )
@@ -708,7 +714,9 @@ class NewLanguageForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super(NewLanguageForm, self).__init__(*args, **kwargs)
-        choices = [(l.code, l.__unicode__()) for l in Language.objects.all()]
+        choices = sort_choices([
+            (l.code, l.__unicode__()) for l in Language.objects.all()
+        ])
         self.fields['lang'].choices = choices
 
 
@@ -722,11 +730,35 @@ class PriorityForm(forms.Form):
     )
 
 
+class CheckFlagsForm(forms.Form):
+    flags = forms.CharField(
+        label=_('Check flags'),
+        required=False,
+        help_text=_(
+            'Please enter a comma separated list of check flags, '
+            'see <a href="{url}">documentation</a> for more details.'
+        ).format(
+            url=weblate.get_doc_url('admin/checks', 'custom-checks')
+        )
+    )
+
+    def clean_flags(self):
+        """
+        Be a little bit more tolerant on whitespaces.
+        """
+        flags = [
+            x.strip() for x in self.cleaned_data['flags'].strip().split(',')
+        ]
+        flags = ','.join([x for x in flags if x])
+        validate_check_flags(flags)
+        return flags
+
+
 class AddUserForm(forms.Form):
     name = forms.CharField(
         label=_('User to add'),
         help_text=_(
             'Please provide username or email. '
-            'User needs to have already active account in Weblate.'
+            'User needs to already have an active account in Weblate.'
         ),
     )

@@ -36,6 +36,23 @@ supported by Weblate and still has best support.
 Weblate supports contextual information stored in the file, adjusting it's
 headers or linking to corresponding source files.
 
+The bilingual gettext PO file typically looks like:
+
+.. code-block:: po
+
+    #: weblate/media/js/bootstrap-datepicker.js:1421
+    msgid "Monday"
+    msgstr "Pondělí"
+
+    #: weblate/media/js/bootstrap-datepicker.js:1421
+    msgid "Tuesday"
+    msgstr "Úterý"
+
+    #: weblate/accounts/avatar.py:163
+    msgctxt "No known user"
+    msgid "None"
+    msgstr "Žádný"
+
 .. seealso::
 
    `Gettext on Wikipedia <https://en.wikipedia.org/wiki/Gettext>`_,
@@ -47,7 +64,39 @@ Monolingual Gettext
 Some projects decide to use Gettext as monolingual formats - they code just IDs
 in their source code and the string needs to be translated to all languages,
 including English. Weblate does support this, though you have to choose explicitly
-this file format when importing resources into Weblate.
+this file format when importing components into Weblate.
+
+The monolingual gettext PO file typically looks like:
+
+.. code-block:: po
+
+    #: weblate/media/js/bootstrap-datepicker.js:1421
+    msgid "day-monday"
+    msgstr "Pondělí"
+
+    #: weblate/media/js/bootstrap-datepicker.js:1421
+    msgid "day-tuesday"
+    msgstr "Úterý"
+
+    #: weblate/accounts/avatar.py:163
+    msgid "none-user"
+    msgstr "Žádný"
+
+While the base language file will be:
+
+.. code-block:: po
+
+    #: weblate/media/js/bootstrap-datepicker.js:1421
+    msgid "day-monday"
+    msgstr "Monday"
+
+    #: weblate/media/js/bootstrap-datepicker.js:1421
+    msgid "day-tuesday"
+    msgstr "Tuesday"
+
+    #: weblate/accounts/avatar.py:163
+    msgid "none-user"
+    msgstr "None"
 
 .. _xliff:
 
@@ -199,6 +248,12 @@ Javascript.
 
 JSON translations are usually monolingual, so it is recommended to specify base
 file with English strings.
+
+.. note::
+   
+    Weblate currently supports only simple JSON files with key value mappings,
+    more complex formats like the ones used by Chrome extensions are currently
+    not supported by translate-toolkit and will produce invalid results.
 
 .. seealso::
 

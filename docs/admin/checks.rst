@@ -26,8 +26,8 @@ Customizing checks
 Fine tuning existing checks
 +++++++++++++++++++++++++++
 
-In :ref:`resource` setup, you can fine tune some of the checks, here is
-current list of flags accepted:
+You can fine tune checks for each source strings or in the :ref:`component`,
+here is current list of flags accepted:
 
 ``rst-text``
     Treat text as RST document, affects :ref:`check-same`.
@@ -36,9 +36,9 @@ current list of flags accepted:
     :ref:`check-c-format`, :ref:`check-php-format`, 
     :ref:`check-python-brace-format`, :ref:`check-same`.
 ``ignore-*``
-    Ignores given check for a resource.
+    Ignores given check for a component.
 
-These flags are understood both in :ref:`resource` settings and in
+These flags are understood both in :ref:`component` settings and in
 translation file itself (eg. in GNU Gettext).
 
 Writing own checks

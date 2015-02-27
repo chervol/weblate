@@ -2,7 +2,8 @@
 branch = True
 omit =
     */migrations*
-    */south_migrations*
+    openshift/*
+    */openshift/*
     */settings_*.py
     */settings.py
     */wsgi.py

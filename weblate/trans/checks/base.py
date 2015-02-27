@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -90,8 +90,8 @@ class Check(object):
         except IndexError:
             return False
         return (
-            (src in chars and tgt not in chars)
-            or (src not in chars and tgt in chars)
+            (src in chars and tgt not in chars) or
+            (src not in chars and tgt in chars)
         )
 
     def is_language(self, unit, vals):

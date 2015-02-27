@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -20,6 +20,7 @@
 
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
+from weblate.trans.validators import validate_check_flags
 
 PRIORITY_CHOICES = (
     (60, _('Very high')),
@@ -38,10 +39,16 @@ class Source(models.Model):
         default=100,
         choices=PRIORITY_CHOICES,
     )
+    check_flags = models.TextField(
+        default='',
+        validators=[validate_check_flags],
+        blank=True,
+    )
 
     class Meta(object):
         permissions = (
             ('edit_priority', "Can edit priority"),
+            ('edit_flags', "Can edit check flags"),
         )
         app_label = 'trans'
         unique_together = ('checksum', 'subproject')
@@ -49,6 +56,7 @@ class Source(models.Model):
     def __init__(self, *args, **kwargs):
         super(Source, self).__init__(*args, **kwargs)
         self.priority_modified = False
+        self.check_flags_modified = False
 
     def __unicode__(self):
         return 'src:{0}'.format(self.checksum)
@@ -60,9 +68,11 @@ class Source(models.Model):
         """
         if force_insert:
             self.priority_modified = (self.priority != 100)
+            self.check_flags_modified = (self.check_flags != '')
         else:
             old = Source.objects.get(pk=self.pk)
             self.priority_modified = (old.priority != self.priority)
+            self.check_flags_modified = (old.check_flags != self.check_flags)
         super(Source, self).save(force_insert, **kwargs)
 
     @models.permalink

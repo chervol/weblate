@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -28,30 +28,41 @@ from django.contrib import messages
 
 from weblate.trans.views.helper import get_subproject
 from weblate.trans.models import Translation, Source
-from weblate.trans.forms import PriorityForm
+from weblate.trans.forms import PriorityForm, CheckFlagsForm
+
+
+def get_source(request, project, subproject):
+    """
+    Returns first translation in subproject
+    (this assumes all have same source strings).
+    """
+    obj = get_subproject(request, project, subproject)
+    try:
+        return obj, obj.translation_set.all()[0]
+    except (Translation.DoesNotExist, IndexError):
+        raise Http404('No translation exists in this component.')
 
 
 def review_source(request, project, subproject):
     """
     Listing of source strings to review.
     """
-    obj = get_subproject(request, project, subproject)
-
-    # Grab first translation in subproject
-    # (this assumes all have same source strings)
-    try:
-        source = obj.translation_set.all()[0]
-    except Translation.DoesNotExist:
-        raise Http404('No translation exists in this resource.')
+    obj, source = get_source(request, project, subproject)
 
     # Grab search type and page number
     rqtype = request.GET.get('type', 'all')
     limit = request.GET.get('limit', 50)
     page = request.GET.get('page', 1)
+    checksum = request.GET.get('checksum', '')
     ignored = 'ignored' in request.GET
+    expand = False
 
     # Filter units:
-    sources = source.unit_set.filter_type(rqtype, source, ignored)
+    if checksum:
+        sources = source.unit_set.filter(checksum=checksum)
+        expand = True
+    else:
+        sources = source.unit_set.filter_type(rqtype, source, ignored)
 
     paginator = Paginator(sources, limit)
 
@@ -73,6 +84,7 @@ def review_source(request, project, subproject):
             'page_obj': sources,
             'rqtype': rqtype,
             'ignored': ignored,
+            'expand': expand,
             'title': _('Review source strings in %s') % obj.__unicode__(),
         }
     )
@@ -82,14 +94,7 @@ def show_source(request, project, subproject):
     """
     Show source strings summary and checks.
     """
-    obj = get_subproject(request, project, subproject)
-
-    # Grab first translation in subproject
-    # (this assumes all have same source strings)
-    try:
-        source = obj.translation_set.all()[0]
-    except Translation.DoesNotExist:
-        raise Http404('No translation exists in this resource.')
+    obj, source = get_source(request, project, subproject)
 
     return render(
         request,
@@ -115,4 +120,20 @@ def edit_priority(request, pk):
         source.save()
     else:
         messages.error(request, _('Failed to change a priority!'))
+    return redirect(request.POST.get('next', source.get_absolute_url()))
+
+
+@require_POST
+@permission_required('edit_check_flags')
+def edit_check_flags(request, pk):
+    """
+    Change source string check flags.
+    """
+    source = get_object_or_404(Source, pk=pk)
+    form = CheckFlagsForm(request.POST)
+    if form.is_valid():
+        source.check_flags = form.cleaned_data['flags']
+        source.save()
+    else:
+        messages.error(request, _('Failed to change check flags!'))
     return redirect(request.POST.get('next', source.get_absolute_url()))

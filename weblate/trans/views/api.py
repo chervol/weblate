@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -41,6 +41,8 @@ BITBUCKET_GIT_REPOS = (
 )
 
 BITBUCKET_HG_REPOS = (
+    'https://bitbucket.org/%(owner)s/%(slug)s',
+    'ssh://hg@bitbucket.org/%(owner)s/%(slug)s',
     'hg::ssh://hg@bitbucket.org/%(owner)s/%(slug)s',
     'hg::https://bitbucket.org/%(owner)s/%(slug)s',
 )
@@ -103,12 +105,12 @@ def update_project(request, project):
 
 
 @csrf_exempt
-def git_service_hook(request, service):
+def vcs_service_hook(request, service):
     '''
-    Shared code between Git service hooks.
+    Shared code between VCS service hooks.
 
     Currently used for bitbucket_hook, github_hook and gitlab_hook, but should
-    be usable for other Git services (Google Code, custom coded sites, etc.)
+    be usable for other VCS services (Google Code, custom coded sites, etc.)
     too.
     '''
     # Check for enabled hooks
@@ -269,6 +271,10 @@ def export_stats(request, project, subproject):
     except (ValueError, KeyError):
         indent = None
 
+    jsonp = None
+    if 'jsonp' in request.GET and request.GET['jsonp']:
+        jsonp = request.GET['jsonp']
+
     response = []
     for trans in subprj.translation_set.all():
         response.append({
@@ -288,11 +294,20 @@ def export_stats(request, project, subproject):
             'url': trans.get_share_url(),
             'url_translate': get_site_url(trans.get_absolute_url()),
         })
+    json_data = json.dumps(
+        response,
+        default=json_dt_handler,
+        indent=indent,
+    )
+    if jsonp:
+        return HttpResponse(
+            '{0}({1})'.format(
+                jsonp,
+                json_data,
+            ),
+            content_type='application/javascript'
+        )
     return HttpResponse(
-        json.dumps(
-            response,
-            default=json_dt_handler,
-            indent=indent,
-        ),
+        json_data,
         content_type='application/json'
     )

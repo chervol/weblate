@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -42,7 +42,8 @@ class WeblateUserBackend(ModelBackend):
             # Need to access private attribute, pylint: disable=W0212
             if not hasattr(user_obj, '_perm_cache'):
                 anon_user = User.objects.get(username=ANONYMOUS_USER_NAME)
-                user_obj._perm_cache = self.get_all_permissions(anon_user)
+                anon_user.is_active = True
+                user_obj._perm_cache = self.get_all_permissions(anon_user, obj)
             return user_obj._perm_cache
         return super(WeblateUserBackend, self).get_all_permissions(
             user_obj, obj
@@ -81,6 +82,6 @@ def disable_anon_user_password_save(sender, **kwargs):
     Blocks setting password for anonymous user.
     '''
     instance = kwargs['instance']
-    if (instance.username == ANONYMOUS_USER_NAME
-            and instance.has_usable_password()):
+    if (instance.username == ANONYMOUS_USER_NAME and
+            instance.has_usable_password()):
         raise ValueError('Anonymous user can not have usable password!')

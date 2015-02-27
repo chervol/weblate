@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% load i18n %}
-{% load url from future %}
 
 {% block breadcrumbs %}
 <li><a href="{% url 'about' %}">{% trans "About" %}</a></li>
@@ -9,12 +8,12 @@
 {% block content %}
 
 <div class="row">
-<div class="col-md-{% if offer_hosting %}6{% else %}12{% endif %}">
+<div class="col-lg-{% if offer_hosting %}6{% else %}12{% endif %}">
 <div class="panel panel-primary">
 <div class="panel-heading"><h4 class="panel-title">{% trans "About Weblate" %}</h4></div>
 <div class="panel-body">
 
-<p>{% blocktrans %}Weblate is a web based translation tool with tight Git integration. It features simple and clean user interface, propagation of translations across resources, quality checks and automatic linking to source files.{% endblocktrans %}</p>
+<p>{% blocktrans %}Weblate is a web based translation tool with tight version control integration. It features simple and clean user interface, propagation of translations across components, quality checks and automatic linking to source files.{% endblocktrans %}</p>
 
 <p>{% blocktrans %}If you are looking for support for Weblate or want to file bug reports check its website at <a href="{{ weblate_url }}">weblate.org</a>.{% endblocktrans %}</p>
 
@@ -30,7 +29,7 @@
 
 
 {% if offer_hosting %}
-<div class="col-md-6">
+<div class="col-lg-6">
 <div class="panel panel-primary">
 <div class="panel-heading"><h4 class="panel-title">{% trans "Hosting translations" %}</h4></div>
 <div class="panel-body">
@@ -38,9 +37,13 @@
 {% trans "This Weblate instance hosts translations for various free software projects." %}
 {% blocktrans %}We can host your project as well, if you are interested, please contact us.{% endblocktrans %}
 </p>
+  <p>
+    {% trans "Commercial hosting is possible as well, our price starts at 19 EUR per project and month, please get in touch with us for more details." %}
+  </p>
 </div>
   <div class="panel-footer">
   <a class="btn btn-default" href="{% url 'hosting' %}">{% trans "Ask for project hosting" %}</a>
+  <a class="btn btn-default" href="{% url 'contact' %}?subject=Commercial hosting">{% trans "Contact us for commercial hosting" %}</a>
   </div>
 </div>
 </div>
@@ -49,7 +52,7 @@
 </div>
 
 <div class="row">
-<div class="col-md-6">
+<div class="col-lg-6">
 <div class="panel panel-primary">
 <div class="panel-heading"><h4 class="panel-title">{% trans "Versions" %}</h4></div>
 <div class="panel-body">
@@ -71,7 +74,7 @@
 </div>
 </div>
 
-<div class="col-md-6">
+<div class="col-lg-6">
 <div class="panel panel-primary">
 <div class="panel-heading"><h4 class="panel-title">{% trans "Statistics" %}</h4></div>
 <div class="panel-body">

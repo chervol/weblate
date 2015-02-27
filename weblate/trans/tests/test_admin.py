@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -19,28 +19,31 @@
 #
 
 from weblate.trans.tests.test_views import ViewTestCase
-import weblate.trans.admin_views
-from django.test import TestCase
 from django.core.urlresolvers import reverse
-from django.utils.unittest import SkipTest
-from weblate.trans.tests.utils import get_test_file
+from unittest import SkipTest
 from weblate.trans.util import add_configuration_error
+from weblate import appsettings
 import tempfile
 import shutil
 import os
-
-TEST_HOSTS = get_test_file('known_hosts')
 
 
 class AdminTest(ViewTestCase):
     '''
     Tests for customized admin interface.
     '''
+    _tempdir = None
+
     def setUp(self):
         super(AdminTest, self).setUp()
         self.user.is_staff = True
         self.user.is_superuser = True
         self.user.save()
+        self._tempdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        if self._tempdir is not None:
+            shutil.rmtree(self._tempdir)
 
     def test_index(self):
         response = self.client.get(reverse('admin:index'))
@@ -51,11 +54,9 @@ class AdminTest(ViewTestCase):
         self.assertContains(response, 'SSH keys')
 
     def test_ssh_generate(self):
-        tempdir = tempfile.mkdtemp()
-        rsafile = os.path.join(tempdir, 'id_rsa.pub')
         try:
-            backup = weblate.trans.admin_views.RSA_KEY_FILE
-            weblate.trans.admin_views.RSA_KEY_FILE = rsafile
+            backup_dir = appsettings.DATA_DIR
+            appsettings.DATA_DIR = self._tempdir
 
             response = self.client.get(reverse('admin-ssh'))
             self.assertContains(response, 'Generate SSH key')
@@ -67,15 +68,12 @@ class AdminTest(ViewTestCase):
             self.assertContains(response, 'Created new SSH key')
 
         finally:
-            weblate.trans.admin_views.RSA_KEY_FILE = backup
-            shutil.rmtree(tempdir)
+            appsettings.DATA_DIR = backup_dir
 
     def test_ssh_add(self):
-        tempdir = tempfile.mkdtemp()
-        hostsfile = os.path.join(tempdir, 'known_hosts')
         try:
-            backup = weblate.trans.admin_views.KNOWN_HOSTS_FILE
-            weblate.trans.admin_views.KNOWN_HOSTS_FILE = hostsfile
+            backup_dir = appsettings.DATA_DIR
+            appsettings.DATA_DIR = self._tempdir
 
             # Verify there is button for adding
             response = self.client.get(reverse('admin-ssh'))
@@ -91,11 +89,11 @@ class AdminTest(ViewTestCase):
             self.assertContains(response, 'Added host key for github.com')
 
             # Check the file contains it
+            hostsfile = os.path.join(self._tempdir, 'ssh', 'known_hosts')
             with open(hostsfile) as handle:
                 self.assertIn('github.com', handle.read())
         finally:
-            weblate.trans.admin_views.KNOWN_HOSTS_FILE = backup
-            shutil.rmtree(tempdir)
+            appsettings.DATA_DIR = backup_dir
 
     def test_performace(self):
         response = self.client.get(reverse('admin-performance'))
@@ -153,14 +151,3 @@ class AdminTest(ViewTestCase):
                 }
             )
             self.assertRedirects(response, url)
-
-
-class SSHKeysTest(TestCase):
-    def test_parse(self):
-        try:
-            backup = weblate.trans.admin_views.KNOWN_HOSTS_FILE
-            weblate.trans.admin_views.KNOWN_HOSTS_FILE = TEST_HOSTS
-            hosts = weblate.trans.admin_views.get_host_keys()
-            self.assertEqual(len(hosts), 50)
-        finally:
-            weblate.trans.admin_views.KNOWN_HOSTS_FILE = backup

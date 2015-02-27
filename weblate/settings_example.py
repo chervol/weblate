@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -18,11 +18,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import django
+import os
+from logging.handlers import SysLogHandler
+
 #
 # Safety check for running with too old Django version
 #
 
-import django
 if django.VERSION < (1, 4, 0):
     raise Exception(
         'Weblate needs Django 1.4 or newer, you are using %s!' %
@@ -32,9 +35,6 @@ if django.VERSION < (1, 4, 0):
 #
 # Django settings for Weblate project.
 #
-
-import os
-from logging.handlers import SysLogHandler
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
@@ -64,6 +64,9 @@ DATABASES = {
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Data directory
+DATA_DIR = os.path.join(BASE_DIR, '..', 'data')
+
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # although not all choices may be available on all operating systems.
@@ -80,6 +83,7 @@ LANGUAGE_CODE = 'en-us'
 LANGUAGES = (
     ('az', u'Azərbaycan'),
     ('be', u'Беларуская'),
+    ('be@latin', u'Biełaruskaja'),
     ('br', u'Brezhoneg'),
     ('ca', u'Català'),
     ('cs', u'Čeština'),
@@ -90,6 +94,7 @@ LANGUAGES = (
     ('es', u'Español'),
     ('fi', u'Suomi'),
     ('fr', u'Français'),
+    ('fy', u'Frysk'),
     ('gl', u'Galego'),
     ('he', u'עברית'),
     ('hu', u'Magyar'),
@@ -107,8 +112,8 @@ LANGUAGES = (
     ('sv', u'Svenska'),
     ('tr', u'Türkçe'),
     ('uk', u'Українська'),
-    ('zh_CN', u'简体字'),
-    ('zh_TW', u'正體字'),
+    ('zh_Hans', u'简体字'),
+    ('zh_Hant', u'正體字'),
 )
 
 SITE_ID = 1
@@ -161,6 +166,7 @@ STATICFILES_FINDERS = (
 )
 
 # Make this unique, and don't share it with anybody.
+# You can generate it using examples/generate-secret-key
 SECRET_KEY = 'jm8fqjlg+5!#xu%e-oh#7!$aa7!6avf7ud*_v=chdrb9qdco6('
 
 # List of callables that know how to import templates from various sources.
@@ -176,7 +182,11 @@ AUTHENTICATION_BACKENDS = (
     'social.backends.google.GoogleOpenId',
     'social.backends.email.EmailAuth',
     # 'social.backends.github.GithubOAuth2',
+    # 'social.backends.bitbucket.BitbucketOAuth',
     # 'social.backends.suse.OpenSUSEOpenId',
+    # 'social.backends.ubuntu.UbuntuOpenId',
+    # 'social.backends.fedora.FedoraOpenId',
+    # 'social.backends.facebook.FacebookOAuth2',
     'weblate.accounts.auth.WeblateUserBackend',
 )
 
@@ -184,6 +194,14 @@ AUTHENTICATION_BACKENDS = (
 SOCIAL_AUTH_GITHUB_KEY = ''
 SOCIAL_AUTH_GITHUB_SECRET = ''
 SOCIAL_AUTH_GITHUB_SCOPE = ['user:email']
+
+SOCIAL_AUTH_BITBUCKET_KEY = ''
+SOCIAL_AUTH_BITBUCKET_SECRET = ''
+SOCIAL_AUTH_BITBUCKET_VERIFIED_EMAILS_ONLY = True
+
+SOCIAL_AUTH_FACEBOOK_KEY = ''
+SOCIAL_AUTH_FACEBOOK_SECRET = ''
+SOCIAL_AUTH_FACEBOOK_SCOPE = ['email', 'public_profile']
 
 # Social auth settings
 SOCIAL_AUTH_PIPELINE = (
@@ -255,12 +273,6 @@ INSTALLED_APPS = (
     # Needed for javascript localization
     'weblate',
 )
-
-# South setup for Django < 1.7
-if django.VERSION < (1, 7, 0):
-    INSTALLED_APPS += (
-        'south',
-    )
 
 LOCALE_PATHS = (os.path.join(BASE_DIR, '..', 'locale'), )
 
@@ -362,8 +374,13 @@ LOGGING = {
 }
 
 # Logging of management commands to console
-if os.environ.get('DJANGO_IS_MANAGEMENT_COMMAND', False):
+if (os.environ.get('DJANGO_IS_MANAGEMENT_COMMAND', False) and
+        'console' not in LOGGING['loggers']['weblate']['handlers']):
     LOGGING['loggers']['weblate']['handlers'].append('console')
+
+# Remove syslog setup if it's not present
+if not os.path.exists('/dev/log'):
+    del LOGGING['handlers']['syslog']
 
 # Machine translation API keys
 
@@ -389,14 +406,8 @@ MT_GOOGLE_KEY = None
 # tmserver URL
 MT_TMSERVER = None
 
-# Path where git repositories are stored, it needs to be writable
-GIT_ROOT = os.path.join(BASE_DIR, 'repos')
-
 # Title of site to use
 SITE_TITLE = 'Weblate'
-
-# Whether to offer hosting
-OFFER_HOSTING = False
 
 # URL of login
 LOGIN_URL = '%s/accounts/login/' % URL_PREFIX
@@ -438,9 +449,6 @@ LOCK_TIME = 15 * 60
 
 # Render forms using bootstrap
 CRISPY_TEMPLATE_PACK = 'bootstrap3'
-
-# Where to put Whoosh index
-WHOOSH_INDEX = os.path.join(BASE_DIR, 'whoosh-index')
 
 # List of quality checks
 # CHECK_LIST = (
@@ -488,7 +496,6 @@ WHOOSH_INDEX = os.path.join(BASE_DIR, 'whoosh-index')
 #     'weblate.trans.machine.google.GoogleWebTranslation',
 #     'weblate.trans.machine.microsoft.MicrosoftTranslation',
 #     'weblate.trans.machine.mymemory.MyMemoryTranslation',
-#     'weblate.trans.machine.opentran.OpenTranTranslation',
 #     'weblate.trans.machine.tmserver.AmagamaTranslation',
 #     'weblate.trans.machine.tmserver.TMServerTranslation',
 #     'weblate.trans.machine.weblatetm.WeblateSimilarTranslation',
@@ -502,7 +509,7 @@ SERVER_EMAIL = 'noreply@weblate.org'
 # the site managers. Used for registration emails.
 DEFAULT_FROM_EMAIL = 'noreply@weblate.org'
 
-# List of URLs your site is supposed to serve, required since Django 1.5
+# List of URLs your site is supposed to serve
 ALLOWED_HOSTS = []
 
 # Example configuration to use memcached for caching
@@ -537,9 +544,6 @@ ALLOWED_HOSTS = []
 
 # Enable whiteboard functionality - under development so disabled by default.
 ENABLE_WHITEBOARD = False
-
-# Override home directory to some writable location
-# os.environ['HOME'] = os.path.join(BASE_DIR, 'configuration')
 
 # Force sane test runner
 TEST_RUNNER = 'django.test.runner.DiscoverRunner'

@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% load url from future %}
 {% load i18n %}
 {% load translations %}
 {% load authnames %}
@@ -30,7 +29,7 @@
 <div class="tab-content">
 <div class="tab-pane active" id="preferences">
 <div class="row">
-<div class="col-md-6">
+<div class="col-lg-6">
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Preferences" %}</h4></div>
   <div class="panel-body">
@@ -41,7 +40,7 @@
   </div>
 </div>
 </div>
-<div class="col-md-6 hidden-xs">
+<div class="col-lg-6 hidden-xs">
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Description" %}</h4></div>
   <div class="panel-body">
@@ -61,7 +60,7 @@
 </div>
 <div class="tab-pane" id="subscriptions">
 <div class="row">
-<div class="col-md-6">
+<div class="col-lg-6">
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Subscribed projects" %}</h4></div>
   <div class="panel-body">
@@ -72,7 +71,7 @@
   </div>
 </div>
 </div>
-<div class="col-md-6 hidden-xs">
+<div class="col-lg-6 hidden-xs">
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Description" %}</h4></div>
   <div class="panel-body">
@@ -96,7 +95,7 @@
 </div>
 <div class="tab-pane" id="account">
 <div class="row">
-<div class="col-md-6">
+<div class="col-lg-6">
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Account" %}</h4></div>
   <div class="panel-body">
@@ -107,11 +106,11 @@
   </div>
 </div>
 </div>
-<div class="col-md-6 hidden-xs">
+<div class="col-lg-6 hidden-xs">
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Description" %}</h4></div>
   <div class="panel-body">
-    <p>{% trans "Your name and email will appear as author on Git commits." %}</p>
+    <p>{% trans "Your name and email will appear as author on the commits." %}</p>
   </div>
   <div class="panel-footer">
   <a class="btn btn-default" href="{% documentation 'user/profile' %}">{% trans "Documentation" %}</a>
@@ -122,7 +121,7 @@
 </div>
 <div class="tab-pane" id="auth">
 <div class="row">
-<div class="col-md-6">
+<div class="col-lg-6">
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "User identities" %}</h4></div>
   <div class="panel-body">
@@ -149,7 +148,7 @@
 <th>{% auth_name assoc.provider %}</th>
 <td>{{ assoc.uid }}</th>
 <td>
-<a href="{% url 'social:disconnect_individual' assoc.provider assoc.id %}?next={% url 'profile' %}" class="disconnect btn btn-default">{% trans "Disconnect" %}</a>
+<a href="{% url 'social:disconnect_individual' assoc.provider assoc.id %}?next={% url 'profile' %}" class="disconnect btn btn-danger"><i class="fa fa-trash"></i> {% trans "Disconnect" %}</a>
 </td>
 
 </tr>
@@ -174,12 +173,12 @@
     <p>{% trans "Removal of the account deletes all your private data." %}</p>
    </div>
    <div class="panel-footer">
-    <a class="btn btn-danger" href="{% url 'remove' %}">{% trans "Remove my account" %}</a>
+    <a class="btn btn-danger" href="{% url 'remove' %}"><i class="fa fa-trash"></i> {% trans "Remove my account" %}</a>
    </div>
 </div>
 
 </div>
-<div class="col-md-6 hidden-xs">
+<div class="col-lg-6 hidden-xs">
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Description" %}</h4></div>
   <div class="panel-body">
@@ -195,7 +194,7 @@
 </div>
 <div class="tab-pane" id="profile">
 <div class="row">
-<div class="col-md-6">
+<div class="col-lg-6">
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Your summary" %}</h4></div>
   <div class="panel-body">
@@ -225,7 +224,7 @@
 
 </div>
 
-<div class="col-md-6 hidden-xs">
+<div class="col-lg-6 hidden-xs">
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Description" %}</h4></div>
   <div class="panel-body">
@@ -243,12 +242,12 @@
 
 <div class="tab-pane" id="licenses">
 <div class="row">
-<div class="col-md-6">
+<div class="col-lg-6">
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Licenses" %}</h4></div>
   <div class="panel-body">
 <p>
-{% trans "By registering you agree to use your name and email in Git commits and provide your contribution under license defined by each translated project." %}
+{% trans "By registering you agree to use your name and email in the commits and provide your contribution under license defined by each translated project." %}
 </p>
 
 {% if licenses %}
@@ -258,14 +257,14 @@
 <tr><th>{% trans "Project" %}</th><th>{% trans "License" %}</th></tr>
 </thead>
 <tbody>
-{% for resource in licenses %}
+{% for component in licenses %}
 <tr>
-<th><a href="{{ resource.get_absolute_url }}">{{ resource }}</a></th>
+<th><a href="{{ component.get_absolute_url }}">{{ component }}</a></th>
 <td>
-{% if resource.license_url %}
-<a href="{{ resource.license_url }}">{{ resource.license }}</a></p>
+{% if component.license_url %}
+<a href="{{ component.license_url }}">{{ component.license }}</a></p>
 {% else %}
-{{ resource.license }}
+{{ component.license }}
 {% endif %}
 </td>
 </tr>
@@ -278,7 +277,7 @@
 
 </div>
 
-<div class="col-md-6 hidden-xs">
+<div class="col-lg-6 hidden-xs">
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Description" %}</h4></div>
   <div class="panel-body">

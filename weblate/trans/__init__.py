@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -17,27 +17,3 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-
-from django.conf import settings
-
-
-def create_permissions_compat(app, **kwargs):
-    '''
-    Creates permissions like syncdb would if we were not using South
-
-    See http://south.aeracode.org/ticket/211
-    '''
-    from django.db.models import get_app, get_models
-    from django.contrib.auth.management import create_permissions
-    if app in ('trans', 'lang', 'accounts'):
-        try:
-            create_permissions(
-                get_app(app), get_models(), 2 if settings.DEBUG else 0
-            )
-        except AttributeError as error:
-            # See https://code.djangoproject.com/ticket/20442
-            print 'Failed to create permission objects: {0}'.format(error)
-
-if 'south' in settings.INSTALLED_APPS:
-    from south.signals import post_migrate
-    post_migrate.connect(create_permissions_compat)

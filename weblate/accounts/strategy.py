@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -19,7 +19,7 @@
 #
 
 from social.strategies.django_strategy import DjangoStrategy
-from django.utils.importlib import import_module
+from importlib import import_module
 from django.conf import settings
 
 
@@ -30,7 +30,7 @@ class WeblateStrategy(DjangoStrategy):
         """
         super(WeblateStrategy, self).__init__(storage, request, tpl)
         if (request and
-                self.session.session_key is None
-                and 'id' in request.GET):
+                self.session.session_key is None and
+                'id' in request.GET):
             engine = import_module(settings.SESSION_ENGINE)
             self.session = engine.SessionStore(request.GET['id'])

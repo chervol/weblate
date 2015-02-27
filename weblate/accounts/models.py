@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -26,13 +26,13 @@ from django.db import models
 from django.dispatch import receiver
 from django.conf import settings
 from django.contrib.auth.signals import user_logged_in
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_migrate
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth.models import Group, User, Permission
-from django.db.models.signals import post_syncdb
 from django.utils import translation as django_translation
 from django.template.loader import render_to_string
 from django.core.mail import EmailMultiAlternatives
+from django.utils.translation import LANGUAGE_SESSION_KEY
 
 from social.apps.django_app.default.models import UserSocialAuth
 
@@ -270,7 +270,7 @@ class VerifiedEmail(models.Model):
     Storage for verified emails from auth backends.
     '''
     social = models.ForeignKey(UserSocialAuth)
-    email = models.EmailField()
+    email = models.EmailField(max_length=254)
 
     def __unicode__(self):
         return u'{0} - {1}'.format(
@@ -283,6 +283,8 @@ class ProfileManager(models.Manager):
     '''
     Manager providing shortcuts for subscription queries.
     '''
+    # pylint: disable=W0232
+
     def subscribed_any_translation(self, project, language, user):
         return self.filter(
             subscribe_any_translation=True,
@@ -568,26 +570,31 @@ class Profile(models.Model):
         return self.user.first_name
 
 
+def set_lang(request, profile):
+    """
+    Sets session language based on user preferences.
+    """
+    request.session[LANGUAGE_SESSION_KEY] = profile.language
+
+
 @receiver(user_logged_in)
-def set_lang(sender, **kwargs):
+def post_login_handler(sender, request, user, **kwargs):
     '''
     Signal handler for setting user language and
     migrating profile if needed.
     '''
-    request = kwargs['request']
-    user = kwargs['user']
 
     # Warning about setting password
-    if (getattr(user, 'backend', '') == 'social.backends.email.EmailAuth'
-            and not user.has_usable_password()):
+    if (getattr(user, 'backend', '') == 'social.backends.email.EmailAuth' and
+            not user.has_usable_password()):
         request.session['show_set_password'] = True
 
     # Ensure user has a profile
-    profile, dummy = Profile.objects.get_or_create(user=user)
+    profile = Profile.objects.get_or_create(user=user)[0]
 
     # Migrate django-registration based verification to python-social-auth
-    if (user.has_usable_password()
-            and not user.social_auth.filter(provider='email').exists()):
+    if (user.has_usable_password() and
+            not user.social_auth.filter(provider='email').exists()):
         social = user.social_auth.create(
             provider='email',
             uid=user.email,
@@ -598,8 +605,7 @@ def set_lang(sender, **kwargs):
         )
 
     # Set language for session based on preferences
-    lang_code = profile.language
-    request.session['django_language'] = lang_code
+    set_lang(request, profile)
 
 
 def create_groups(update):
@@ -648,6 +654,7 @@ def create_groups(update):
             Permission.objects.get(codename='accept_suggestion'),
             Permission.objects.get(codename='vote_suggestion'),
             Permission.objects.get(codename='override_suggestion'),
+            Permission.objects.get(codename='delete_comment'),
             Permission.objects.get(codename='delete_suggestion'),
             Permission.objects.get(codename='ignore_check'),
             Permission.objects.get(codename='upload_dictionary'),
@@ -663,25 +670,33 @@ def create_groups(update):
             Permission.objects.get(codename='add_suggestion'),
             Permission.objects.get(codename='use_mt'),
             Permission.objects.get(codename='edit_priority'),
+            Permission.objects.get(codename='edit_flags'),
             Permission.objects.get(codename='manage_acl'),
         )
 
+    created = True
     try:
-        anon_user, created = User.objects.get_or_create(
+        anon_user = User.objects.get(
+            username=ANONYMOUS_USER_NAME,
+        )
+        created = False
+        if anon_user.is_active:
+            raise ValueError(
+                'Anonymous user ({}) already exists and enabled, '
+                'please change ANONYMOUS_USER_NAME setting.'.format(
+                    ANONYMOUS_USER_NAME,
+                )
+            )
+    except User.DoesNotExist:
+        anon_user = User.objects.create(
             username=ANONYMOUS_USER_NAME,
             is_active=False,
         )
-        if created or update:
-            anon_user.set_unusable_password()
-            anon_user.groups.clear()
-            anon_user.groups.add(guest_group)
-    except:
-        raise ValueError(
-            'Anonymous user ({}) already exists and enabled, '
-            'please change ANONYMOUS_USER_NAME setting.'.format(
-                ANONYMOUS_USER_NAME,
-            )
-        )
+
+    if created or update:
+        anon_user.set_unusable_password()
+        anon_user.groups.clear()
+        anon_user.groups.add(guest_group)
 
 
 def move_users():
@@ -720,18 +735,13 @@ def remove_user(user):
     user.social_auth.all().delete()
 
 
-@receiver(post_syncdb)
-def sync_create_groups(sender, app, **kwargs):
+@receiver(post_migrate)
+def sync_create_groups(sender, **kwargs):
     '''
     Create groups on syncdb.
     '''
-    if (app == 'accounts'
-            or getattr(app, '__name__', '') == 'weblate.accounts.models'):
+    if sender.label == 'accounts':
         create_groups(False)
-
-if 'south' in settings.INSTALLED_APPS:
-    from south.signals import post_migrate
-    post_migrate.connect(sync_create_groups)
 
 
 @receiver(post_save, sender=User)

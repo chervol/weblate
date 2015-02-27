@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -28,6 +28,38 @@ import json
 
 class Command(BaseCommand):
     help = 'imports userdata from JSON dump of database'
+    args = '<json-file>'
+
+    def import_subscriptions(self, profile, userprofile):
+        """
+        Imports user subscriptions.
+        """
+        # Add subscriptions
+        for subscription in userprofile['subscriptions']:
+            try:
+                profile.subscriptions.add(
+                    Project.objects.get(slug=subscription)
+                )
+            except Project.DoesNotExist:
+                continue
+
+        # Subscription settings
+        for field in Profile.SUBSCRIPTION_FIELDS:
+            setattr(profile, field, userprofile[field])
+
+    def update_languages(self, profile, userprofile):
+        """
+        Updates user language preferences.
+        """
+        profile.language = userprofile['language']
+        for lang in userprofile['secondary_languages']:
+            profile.secondary_languages.add(
+                Language.objects.get(code=lang)
+            )
+        for lang in userprofile['languages']:
+            profile.languages.add(
+                Language.objects.get(code=lang)
+            )
 
     def handle(self, *args, **options):
         '''
@@ -62,28 +94,10 @@ class Command(BaseCommand):
 
                 # Update fields if we should
                 if update:
-                    profile.language = userprofile['language']
-                    for lang in userprofile['secondary_languages']:
-                        profile.secondary_languages.add(
-                            Language.objects.get(code=lang)
-                        )
-                    for lang in userprofile['languages']:
-                        profile.languages.add(
-                            Language.objects.get(code=lang)
-                        )
+                    self.update_languages(profile, userprofile)
 
                 # Add subscriptions
-                for subscription in userprofile['subscriptions']:
-                    try:
-                        profile.subscriptions.add(
-                            Project.objects.get(slug=subscription)
-                        )
-                    except Project.DoesNotExist:
-                        continue
-
-                # Subscription settings
-                for field in Profile.SUBSCRIPTION_FIELDS:
-                    setattr(profile, field, userprofile[field])
+                self.import_subscriptions(profile, userprofile)
 
                 profile.save()
             except User.DoesNotExist:

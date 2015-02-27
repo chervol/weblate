@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -19,11 +19,11 @@
 #
 
 from django.db import models
+from django.db import transaction
 from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
 from django.dispatch import receiver
-from django.conf import settings
-from django.db.models.signals import post_syncdb
+from django.db.models.signals import post_migrate
 
 from translate.lang.data import languages
 
@@ -68,6 +68,8 @@ def get_plural_type(code, pluralequation):
 
 
 class LanguageManager(models.Manager):
+    # pylint: disable=W0232
+
     _default_lang = None
 
     def get_default(self):
@@ -78,13 +80,13 @@ class LanguageManager(models.Manager):
             self._default_lang = self.get(code='en')
         return self._default_lang
 
-    def try_get(self, code):
+    def try_get(self, **kwargs):
         '''
         Tries to get language by code.
         '''
         try:
-            return self.get(code=code)
-        except Language.DoesNotExist:
+            return self.get(**kwargs)
+        except (Language.DoesNotExist, Language.MultipleObjectsReturned):
             return None
 
     def parse_lang_country(self, code):
@@ -114,9 +116,21 @@ class LanguageManager(models.Manager):
         '''
 
         # First try getting langauge as is
-        ret = self.try_get(code)
+        ret = self.try_get(code=code)
         if ret is not None:
             return ret
+
+        # Try using name
+        ret = self.try_get(name__iexact=code.lower())
+        if ret is not None:
+            return ret
+
+        # Handle aliases
+        if code in data.LOCALE_ALIASES:
+            code = data.LOCALE_ALIASES[code]
+            ret = self.try_get(name=code)
+            if ret is not None:
+                return ret
 
         # Parse the string
         lang, country = self.parse_lang_country(code)
@@ -136,13 +150,13 @@ class LanguageManager(models.Manager):
         else:
             newcode = lang.lower()
 
-        ret = self.try_get(newcode)
+        ret = self.try_get(code=newcode)
         if ret is not None:
             return ret
 
         # Try canonical variant
         if SIMPLIFY_LANGUAGES and newcode in data.DEFAULT_LANGS:
-            ret = self.try_get(lang.lower())
+            ret = self.try_get(code=lang.lower())
             if ret is not None:
                 return ret
 
@@ -167,12 +181,12 @@ class LanguageManager(models.Manager):
         # Check for different variant
         if baselang is None and '@' in code:
             parts = code.split('@')
-            baselang = self.try_get(parts[0])
+            baselang = self.try_get(code=parts[0])
 
         # Check for different country
         if baselang is None and '_' in code or '-' in code:
             parts = code.replace('-', '_').split('_')
-            baselang = self.try_get(parts[0])
+            baselang = self.try_get(code=parts[0])
 
         if baselang is not None:
             lang.name = baselang.name
@@ -289,17 +303,14 @@ class LanguageManager(models.Manager):
         return errors
 
 
-@receiver(post_syncdb)
-def setup_lang(sender, app, **kwargs):
+@receiver(post_migrate)
+def setup_lang(sender, **kwargs):
     '''
     Hook for creating basic set of languages on database migration.
     '''
-    if app == 'lang' or getattr(app, '__name__', '') == 'weblate.lang.models':
-        Language.objects.setup(False)
-
-if 'south' in settings.INSTALLED_APPS:
-    from south.signals import post_migrate
-    post_migrate.connect(setup_lang)
+    if sender.label == 'lang':
+        with transaction.atomic():
+            Language.objects.setup(False)
 
 
 class Language(models.Model, PercentMixin):
@@ -345,11 +356,21 @@ class Language(models.Model, PercentMixin):
         self._percents = None
 
     def __unicode__(self):
-        if ('(' not in self.name
-                and ('_' in self.code or '-' in self.code)
-                and self.code not in ('zh_TW', 'zh_CN')):
-            return '%s (%s)' % (_(self.name), self.code)
+        if self.show_language_code:
+            return u'{0} ({1})'.format(
+                _(self.name), self.code
+            )
         return _(self.name)
+
+    @property
+    def show_language_code(self):
+        if '(' in self.name:
+            return False
+
+        if self.code in ('zh_TW', 'zh_CN'):
+            return False
+
+        return '_' in self.code or '-' in self.code
 
     def get_plural_form(self):
         '''

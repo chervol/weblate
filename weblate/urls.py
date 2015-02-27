@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -71,7 +71,7 @@ urlpatterns = patterns(
     ),
     url(
         r'^projects/$',
-        RedirectView.as_view(url='/')
+        RedirectView.as_view(url='/', permanent=False)
     ),
     url(
         r'^projects/' + PROJECT + '$',
@@ -144,6 +144,11 @@ urlpatterns = patterns(
         'weblate.trans.views.source.edit_priority',
         name='edit_priority'
     ),
+    url(
+        r'^source/(?P<pk>[0-9]+)/check_flags/$',
+        'weblate.trans.views.source.edit_check_flags',
+        name='edit_check_flags'
+    ),
 
     # Translation pages
     url(
@@ -197,28 +202,6 @@ urlpatterns = patterns(
         name='delete-user',
     ),
 
-    # Activity HTML
-    url(
-        r'^activity/html/$',
-        'weblate.trans.views.charts.view_activity',
-        name='view_activity',
-    ),
-    url(
-        r'^activity/html/' + PROJECT + '$',
-        'weblate.trans.views.charts.view_activity',
-        name='view_activity_project',
-    ),
-    url(
-        r'^activity/html/' + SUBPROJECT + '$',
-        'weblate.trans.views.charts.view_activity',
-        name='view_activity_subproject',
-    ),
-    url(
-        r'^activity/html/' + TRANSLATION + '$',
-        'weblate.trans.views.charts.view_activity',
-        name='view_activity_translation',
-    ),
-
     # Monthly activity
     url(
         r'^activity/month/$',
@@ -228,17 +211,27 @@ urlpatterns = patterns(
     url(
         r'^activity/month/' + PROJECT + '$',
         'weblate.trans.views.charts.monthly_activity',
-        name='monthly_activity_project',
+        name='monthly_activity',
     ),
     url(
         r'^activity/month/' + SUBPROJECT + '$',
         'weblate.trans.views.charts.monthly_activity',
-        name='monthly_activity_subproject',
+        name='monthly_activity',
     ),
     url(
         r'^activity/month/' + TRANSLATION + '$',
         'weblate.trans.views.charts.monthly_activity',
-        name='monthly_activity_translation',
+        name='monthly_activity',
+    ),
+    url(
+        r'^activity/language/month/' + LANGUAGE + '/$',
+        'weblate.trans.views.charts.monthly_activity',
+        name='monthly_activity',
+    ),
+    url(
+        r'^activity/user/month/(?P<user>[^/]+)/$',
+        'weblate.trans.views.charts.monthly_activity',
+        name='monthly_activity',
     ),
 
     # Yearly activity
@@ -250,46 +243,27 @@ urlpatterns = patterns(
     url(
         r'^activity/year/' + PROJECT + '$',
         'weblate.trans.views.charts.yearly_activity',
-        name='yearly_activity_project',
+        name='yearly_activity',
     ),
     url(
         r'^activity/year/' + SUBPROJECT + '$',
         'weblate.trans.views.charts.yearly_activity',
-        name='yearly_activity_subproject',
+        name='yearly_activity',
     ),
     url(
         r'^activity/year/' + TRANSLATION + '$',
         'weblate.trans.views.charts.yearly_activity',
-        name='yearly_activity_translation',
-    ),
-
-    # Per language activity
-    url(
-        r'^activity/language/html/' + LANGUAGE + '/$',
-        'weblate.trans.views.charts.view_language_activity',
-        name='view_language_activity',
-    ),
-    url(
-        r'^activity/language/month/' + LANGUAGE + '/$',
-        'weblate.trans.views.charts.monthly_language_activity',
-        name='monthly_language_activity',
+        name='yearly_activity',
     ),
     url(
         r'^activity/language/year/' + LANGUAGE + '/$',
-        'weblate.trans.views.charts.yearly_language_activity',
-        name='yearly_language_activity',
-    ),
-
-    # Per user activity
-    url(
-        r'^activity/user/month/(?P<user>[^/]+)/$',
-        'weblate.trans.views.charts.monthly_user_activity',
-        name='monthly_user_activity',
+        'weblate.trans.views.charts.yearly_activity',
+        name='yearly_activity',
     ),
     url(
         r'^activity/user/year/(?P<user>[^/]+)/$',
-        'weblate.trans.views.charts.yearly_user_activity',
-        name='yearly_user_activity',
+        'weblate.trans.views.charts.yearly_activity',
+        name='yearly_activity',
     ),
 
     # Comments
@@ -298,8 +272,13 @@ urlpatterns = patterns(
         'weblate.trans.views.edit.comment',
         name='comment',
     ),
+    url(
+        r'^comment/(?P<pk>[0-9]+)/delete/$',
+        'weblate.trans.views.edit.delete_comment',
+        name='delete-comment',
+    ),
 
-    # Git manipulation - commit
+    # VCS manipulation - commit
     url(
         r'^commit/' + PROJECT + '$',
         'weblate.trans.views.git.commit_project',
@@ -316,7 +295,7 @@ urlpatterns = patterns(
         name='commit_translation',
     ),
 
-    # Git manipulation - update
+    # VCS manipulation - update
     url(
         r'^update/' + PROJECT + '$',
         'weblate.trans.views.git.update_project',
@@ -333,7 +312,7 @@ urlpatterns = patterns(
         name='update_translation',
     ),
 
-    # Git manipulation - push
+    # VCS manipulation - push
     url(
         r'^push/' + PROJECT + '$',
         'weblate.trans.views.git.push_project',
@@ -350,7 +329,7 @@ urlpatterns = patterns(
         name='push_translation',
     ),
 
-    # Git manipulation - reset
+    # VCS manipulation - reset
     url(
         r'^reset/' + PROJECT + '$',
         'weblate.trans.views.git.reset_project',
@@ -452,17 +431,17 @@ urlpatterns = patterns(
         name='hook-project',
     ),
     url(
-        r'^hooks/github/$', 'weblate.trans.views.api.git_service_hook',
+        r'^hooks/github/$', 'weblate.trans.views.api.vcs_service_hook',
         {'service': 'github'},
         name='hook-github',
     ),
     url(
-        r'^hooks/gitlab/$', 'weblate.trans.views.api.git_service_hook',
+        r'^hooks/gitlab/$', 'weblate.trans.views.api.vcs_service_hook',
         {'service': 'gitlab'},
         name='hook-gitlab',
     ),
     url(
-        r'^hooks/bitbucket/$', 'weblate.trans.views.api.git_service_hook',
+        r'^hooks/bitbucket/$', 'weblate.trans.views.api.vcs_service_hook',
         {'service': 'bitbucket'},
         name='hook-bitbucket',
     ),
@@ -582,9 +561,9 @@ urlpatterns = patterns(
         name='js-catalog'
     ),
     url(
-        r'^js/config/$',
-        'weblate.trans.views.js.js_config',
-        name='js-config',
+        r'^js/mt-services/$',
+        'weblate.trans.views.js.mt_services',
+        name='js-mt-services',
     ),
     url(
         r'^js/translate/(?P<unit_id>[0-9]+)/$',

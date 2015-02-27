@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -162,8 +162,8 @@ def search(request):
 
 
 def show_engage(request, project, lang=None):
-    # Get project object
-    obj = get_project(request, project)
+    # Get project object, skipping ACL
+    obj = get_project(request, project, skip_acl=True)
 
     # Handle language parameter
     language = None
@@ -172,7 +172,7 @@ def show_engage(request, project, lang=None):
 
     context = {
         'object': obj,
-        'project': obj.name,
+        'project': obj,
         'languages': obj.get_language_count(),
         'total': obj.get_total(),
         'percent': obj.get_translated_percent(language),
@@ -239,6 +239,7 @@ def show_project(request, project):
         'project.html',
         {
             'object': obj,
+            'project': obj,
             'dicts': dicts,
             'last_changes': last_changes,
             'last_changes_rss': reverse(
@@ -267,6 +268,7 @@ def show_subproject(request, project, subproject):
         'subproject.html',
         {
             'object': obj,
+            'project': obj.project,
             'translations': obj.translation_set.enabled(),
             'show_language': 1,
             'last_changes': last_changes,
@@ -318,6 +320,7 @@ def show_translation(request, project, subproject, lang):
         'translation.html',
         {
             'object': obj,
+            'project': obj.subproject.project,
             'form': form,
             'autoform': autoform,
             'search_form': search_form,
@@ -328,6 +331,7 @@ def show_translation(request, project, subproject, lang):
                 'rss-translation',
                 kwargs=obj.get_kwargs(),
             ),
+            'show_only_component': True,
             'other_translations': Translation.objects.filter(
                 subproject__project=obj.subproject.project,
                 language=obj.language,
@@ -397,7 +401,7 @@ def about(request):
             translation = project.translation_set.all()[0]
             total_strings += translation.total
             total_words += translation.total_words
-        except Translation.DoesNotExist:
+        except (IndexError, Translation.DoesNotExist):
             pass
     context['title'] = _('About Weblate')
     context['total_translations'] = totals['translated__sum']
@@ -438,6 +442,7 @@ def data_project(request, project):
         'data.html',
         {
             'object': obj,
+            'project': obj,
             'hooks_docs': weblate.get_doc_url('api', 'hooks'),
             'api_docs': weblate.get_doc_url('api', 'exports'),
             'rss_docs': weblate.get_doc_url('api', 'rss'),
@@ -490,7 +495,9 @@ def add_user(request, project):
 
     form = AddUserForm(request.POST)
 
-    if form.is_valid():
+    if not obj.enable_acl:
+        messages.error(request, _('ACL not enabled for this project!'))
+    elif form.is_valid():
         try:
             user = User.objects.get(
                 Q(username=form.cleaned_data['name']) |

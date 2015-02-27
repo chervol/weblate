@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -22,22 +22,23 @@ Helper classes for management commands.
 '''
 
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 from optparse import make_option
 from weblate.trans.models import Unit, SubProject, Translation
 
 
 class WeblateCommand(BaseCommand):
     '''
-    Command which accepts project/resource/--all params to process.
+    Command which accepts project/component/--all params to process.
     '''
-    args = '<project/resource>'
+    args = '<project/component>'
     option_list = BaseCommand.option_list + (
         make_option(
             '--all',
             action='store_true',
             dest='all',
             default=False,
-            help='process all resources'
+            help='process all components'
         ),
     )
 
@@ -45,8 +46,44 @@ class WeblateCommand(BaseCommand):
         '''
         Returns list of units matching parameters.
         '''
-        translations = self.get_translations(*args, **options)
-        return Unit.objects.filter(translation__in=translations)
+        if options['all']:
+            return Unit.objects.all()
+        return Unit.objects.filter(
+            translation__subproject__in=self.get_subprojects(*args, **options)
+        )
+
+    def iterate_units(self, *args, **options):
+        """
+        Memory effective iteration over units.
+        """
+        units = self.get_units(*args, **options).order_by('pk')
+        count = units.count()
+        if not count:
+            return
+
+        current = 0
+        last = units.order_by('-pk')[0].pk
+        done = 0
+        step = 1000
+
+        # Iterate over chunks
+        while current < last:
+            self.stdout.write(
+                'Processing {0:.1f}%'.format(done * 100.0 / count),
+            )
+            with transaction.atomic():
+                step_units = units.filter(
+                    pk__gt=current
+                )[:step].prefetch_related(
+                    'translation__language',
+                    'translation__subproject',
+                    'translation__subproject__project',
+                )
+                for unit in step_units:
+                    current = unit.pk
+                    done += 1
+                    yield unit
+        self.stdout.write('Operation completed')
 
     def get_translations(self, *args, **options):
         '''
@@ -58,14 +95,16 @@ class WeblateCommand(BaseCommand):
 
     def get_subprojects(self, *args, **options):
         '''
-        Returns list of resources matching parameters.
+        Returns list of components matching parameters.
         '''
         if options['all']:
-            # all resources
+            # all components
             result = SubProject.objects.all()
         elif len(args) == 0:
             # no argumets to filter projects
-            print 'Please specify either --all or <project/resource>'
+            self.stderr.write(
+                'Please specify either --all or <project/component>'
+            )
             raise CommandError('Nothing to process!')
         else:
             # start with none and add found
@@ -73,19 +112,21 @@ class WeblateCommand(BaseCommand):
 
             # process arguments
             for arg in args:
-                # do we have also resource?
+                # do we have also component?
                 parts = arg.split('/')
 
                 # filter by project
                 found = SubProject.objects.filter(project__slug=parts[0])
 
-                # filter by resource if available
+                # filter by component if available
                 if len(parts) == 2:
                     found = found.filter(slug=parts[1])
 
                 # warn on no match
                 if found.count() == 0:
-                    print '"%s" did not match any resources' % arg
+                    self.stderr.write(
+                        '"%s" did not match any components' % arg
+                    )
                     raise CommandError('Nothing to process!')
 
                 # merge results
@@ -117,6 +158,19 @@ class WeblateLangCommand(WeblateCommand):
             help='Limit only to given languages (comma separated list)'
         ),
     )
+
+    def get_units(self, *args, **options):
+        '''
+        Returns list of units matching parameters.
+        '''
+        if options['all']:
+            if options['lang'] is not None:
+                return Unit.objects.filter(
+                    translation__language__code=options['lang']
+                )
+            return Unit.objects.all()
+
+        return super(WeblateLangCommand, self).get_units(*args, **options)
 
     def get_translations(self, *args, **options):
         '''

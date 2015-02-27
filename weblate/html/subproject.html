@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% load i18n %}
-{% load url from future %}
 {% load crispy_forms_tags %}
 
 {% block breadcrumbs %}
@@ -8,7 +7,7 @@
 <li><a href="{{ object.get_absolute_url }}">{{ object.name }}</a></li>
 
 <a class="pull-right flip" href="{{ object.get_widgets_url }}">
-<img src="{% url 'widget-image' project=object.project.slug widget='shields' color='badge' extension='svg' %}" />
+<img src="{% url 'widget-image' project=object.project.slug widget='svg' color='badge' extension='svg' %}" />
 </a>
 {% endblock %}
 
@@ -18,7 +17,7 @@
 <ul class="nav nav-pills">
   <li class="active"><a href="#overview" data-toggle="tab">{% trans "Overview" %}</a></li>
   <li><a href="#history" data-toggle="tab">{% trans "History" %}</a></li>
-  <li><a href="#activity" data-toggle="tab" data-href="{% url 'view_activity_subproject' project=object.project.slug subproject=object.slug %}">{% trans "Activity" %}</a></li>
+  <li><a href="#activity" data-toggle="tab" data-load="activity" data-yearly="{% url 'yearly_activity' project=object.project.slug subproject=object.slug %}" data-monthly="{% url 'monthly_activity' project=object.project.slug subproject=object.slug %}">{% trans "Activity" %}</a></li>
   <li class="dropdown">
     <a class="dropdown-toggle" data-toggle="dropdown" href="#">
       {% trans "Tools" %} <span class="caret"></span>
@@ -29,6 +28,9 @@
       <li><a href="#repository" data-toggle="tab" data-href="{% url 'git_status_subproject' project=object.project.slug subproject=object.slug %}">{% trans "Repository maintenance" %}</a></li>
       {% endif %}
       <li><a href="{% url 'show_source' project=object.project.slug subproject=object.slug %}">{% trans "Source strings review" %}</a></li>
+      {% if perms.trans.manage_acl and object.project.enable_acl %}
+      <li><a href="{{ object.project.get_absolute_url }}#acl">{% trans "Manage users" %}</a></li>
+      {% endif %}
     </ul>
   </li>
 {% if enable_sharing %}
@@ -53,7 +55,7 @@
 <div class="tab-pane active" id="overview">
 <div class="row">
 
-<div class="col-md-6">
+<div class="col-lg-6">
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Translations" %}</h4></div>
   <div class="panel-body">
@@ -66,7 +68,7 @@
 
 </div>
 
-<div class="col-md-6">
+<div class="col-lg-6">
 
 <div class="panel panel-primary">
   <div class="panel-heading"><h4 class="panel-title">{% trans "Project Information" %}</h4></div>
@@ -111,15 +113,7 @@
 {% include "last-changes.html" %}
 </div>
 
-<div class="tab-pane" id="activity">
-<div class="panel panel-primary">
-<div class="panel-heading"><h4 class="panel-title">{% trans "Activity" %}</h4></div>
-<div class="panel-body">
-<p>{% trans "Loading…" %}</p>
-</div>
-
-</div>
-</div>
+{% include "activity-tab.html" %}
 
 {% if perms.trans.commit_translation or perms.trans.update_translation %}
 <div class="tab-pane" id="repository">

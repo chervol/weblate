@@ -10,28 +10,28 @@ Requirements
 
 Python (2.7)
     https://www.python.org/
-Django (>= 1.6)
+Django (>= 1.7)
     https://www.djangoproject.com/
-Translate-toolkit (>= 1.9.0, 1.10.0 or newer strongly recommended)
+Translate-toolkit (>= 1.10.0)
     http://toolkit.translatehouse.org/
 Git (>= 1.6)
     http://git-scm.com/
+Mercurial (>= 2.8) (optional for Mercurial repositories support)
+    http://mercurial.selenic.com/
 python-social-auth (>= 0.2.0)
     http://psa.matiasaguirre.net/
-Whoosh (>= 2.5, 2.5.2 is recommended)
-    http://bitbucket.org/mchaput/whoosh/
+Whoosh (>= 2.5, 2.5.7 is recommended, 2.6.0 is broken)
+    https://bitbucket.org/mchaput/whoosh/wiki/Home
 PIL or Pillow library
     https://python-pillow.github.io/
 lxml (>= 3.1.0)
     http://lxml.de/
-South (>= 1.0) (needed for Django < 1.7)
-    http://south.aeracode.org/
 dateutil
     http://labix.org/python-dateutil
 libravatar (optional for federated avatar support)
     https://pypi.python.org/pypi/pyLibravatar
-PyICU (optional for proper sorting of strings)
-    https://pypi.python.org/pypi/PyICU
+pyuca (optional for proper sorting of strings)
+    https://github.com/SmileyChris/pyuca
 babel (optional for Android resources support)
     http://babel.pocoo.org/
 Database backend
@@ -46,42 +46,94 @@ you can use apt-get:
 .. code-block:: sh
 
     apt-get install python-django translate-toolkit \
-        python-whoosh python-pil python-django-south python-libravatar \
-        python-pyicu python-babel
+        python-whoosh python-pil python-libravatar \
+        python-babel Git mercurial python-social-auth
 
     # Optional for database backend
 
     apt-get install python-mysqldb   # For MySQL
     apt-get install python-psycopg2  # For PostgreSQL
 
-    # Dependencies for python-social-auth
-
-    apt-get install python-requests-oauthlib python-six python-openid
-
-If you are running Debian jessie or above, you can install python-social-auth
-by executing 
-
-    apt-get install python-social-auth
-    
-For Debian 7.0 (wheezy) or older, it is recommended to install it using pip:
+For Debian 7.0 (Wheezy) or older, you need to install several Python modules
+manually using pip as versions shipped in distribution are too old:
 
 .. code-block:: sh
 
-    pip install python-social-auth
+    # Dependencies for python-social-auth
+    apt-get install python-requests-oauthlib python-six python-openid
 
+    pip install python-social-auth Django Whoosh
+    
+For proper sorting of a unicode strings, it is recommended to install pyuca:
+
+.. code-block:: sh
+
+    pip install https://github.com/SmileyChris/pyuca/archive/master.zip
+
+Depending on how you intend to run Weblate and what you already have installed,
+you might need additional components:
+
+.. code-block:: sh
+
+    # Web server option 1: nginx and uwsgi
+    apt-get install nginx uwsgi uwsgi-plugin-python
+
+    # Web server option 2: Apache with mod_wsgi
+    apt-get install apache2 libapache2-mod-wsgi
+
+    # Caching backend: memcached
+    apt-get install memcached
+
+    # Database option 1: mariadb
+    apt-get install mariadb-server
+
+    # Database option 2: mysql
+    apt-get install mysql-server
+
+    # Database option 3: postgresql
+    apt-get install postgresql
 
 Requirements on openSUSE
 ++++++++++++++++++++++++
 
-All requirements are available either directly in openSUSE or in
+Most of requirements are available either directly in openSUSE or in
 ``devel:languages:python`` repository:
 
 .. code-block:: sh
 
-    zypper install python-Django python-icu translate-toolkit \
+    zypper install python-Django translate-toolkit \
         python-Whoosh python-Pillow python-South python-python-social-auth \
-        python-babel
+        python-babel Git mercurial
 
+    
+For proper sorting of a unicode strings, it is recommended to install pyuca:
+
+.. code-block:: sh
+
+    pip install https://github.com/SmileyChris/pyuca/archive/master.zip
+
+Depending on how you intend to run Weblate and what you already have installed,
+you might need additional components:
+
+.. code-block:: sh
+
+    # Web server option 1: nginx and uwsgi
+    zypper install nginx uwsgi uwsgi-plugin-python
+
+    # Web server option 2: Apache with mod_wsgi
+    zypper install apache2 apache2-mod_wsgi
+
+    # Caching backend: memcached
+    zypper install memcached
+
+    # Database option 1: mariadb
+    zypper install mariadb
+
+    # Database option 2: mysql
+    zypper install mysql
+
+    # Database option 3: postgresql
+    zypper install postgresql
 
 Requirements on OSX
 +++++++++++++++++++
@@ -131,9 +183,8 @@ On openSUSE or SLES you can install them using:
 Filesystem permissions
 ----------------------
 
-Weblate process needs to be able to read and write to two directories where it
-keeps data. The :setting:`GIT_ROOT` is used for storing Git repositories and
-:setting:`WHOOSH_INDEX` is used for fulltext search data.
+Weblate process needs to be able to read and write to the directory where it
+keeps data - :setting:`DATA_DIR`.
 
 The default configuration places them in same tree as Weblate sources, however
 you might prefer to move these to better location such as
@@ -146,10 +197,52 @@ You should also take care when running :ref:`manage`, as they should be run
 under same user as Weblate itself is running, otherwise permissions on some
 files might be wrong.
 
+.. _database-setup:
+
+Creating database for Weblate
+-----------------------------
+
+It is recommended to run Weblate on some database server. Using SQLite backend
+is really good for testing purposes only.
+    
+.. seealso:: :ref:`production-database`, `Django's databases <https://docs.djangoproject.com/en/1.7/ref/databases/>`_
+
+Creating database in PostgreSQL
++++++++++++++++++++++++++++++++
+
+It is usually good idea to run Weblate in separate database and separate user:
+
+.. code-block:: sh
+
+    # If PostgreSQL was not installed before, set the master password
+    sudo -u postgres psql postgres -c "\password postgres"
+
+    # Create database user called "weblate"
+    sudo -u postgres createuser -D -A -P weblate
+
+    # Create database "weblate" owned by "weblate"
+    sudo -u postgres createdb -O weblate weblate
+
+
+Creating database in MySQL
+++++++++++++++++++++++++++
+
+When using MySQL, don't forget to create database with UTF-8 encoding:
+
+.. code-block:: mysql
+
+    # Grant all privileges to  weblate user
+    GRANT ALL PRIVILEGES ON weblate.* TO 'weblate'@'localhost'  IDENTIFIED BY 'password';
+
+    # Create database    
+    CREATE DATABASE weblate CHARACTER SET utf8;
+
 .. _installation:
 
 Installation
 ------------
+
+.. seealso:: :ref:`sample-configuration`
 
 Copy :file:`weblate/settings_example.py` to :file:`weblate/settings.py` and
 adjust it to match your setup. You will probably want to adjust following
@@ -160,7 +253,7 @@ options:
     List of site administrators to receive notifications when something goes
     wrong, for example notifications on failed merge or Django errors.
 
-    .. seealso:: https://docs.djangoproject.com/en/1.6/ref/settings/#admins
+    .. seealso:: https://docs.djangoproject.com/en/1.7/ref/settings/#admins
 
 ``ALLOWED_HOSTS``
 
@@ -178,18 +271,11 @@ options:
     Connectivity to database server, please check Django's documentation for more
     details.
 
-    .. note::
-
-        When using MySQL, don't forget to create database with UTF-8 encoding:
-
-        .. code-block:: sql
-
-            CREATE DATABASE <dbname> CHARACTER SET utf8;
-
     .. seealso:: 
-        
-        https://docs.djangoproject.com/en/1.6/ref/settings/#databases, 
-        https://docs.djangoproject.com/en/1.6/ref/databases/
+       
+        :ref:`database-setup`
+        https://docs.djangoproject.com/en/1.7/ref/settings/#databases, 
+        https://docs.djangoproject.com/en/1.7/ref/databases/
 
 ``DEBUG``
 
@@ -200,7 +286,7 @@ options:
     Debug mode also slows down Weblate as Django stores much more information
     internally in this case.
 
-    .. seealso:: https://docs.djangoproject.com/en/1.6/ref/settings/#debug
+    .. seealso:: https://docs.djangoproject.com/en/1.7/ref/settings/#debug
 
 ``DEFAULT_FROM_EMAIL``
 
@@ -220,16 +306,24 @@ options:
 
     .. seealso:: `SERVER_EMAIL documentation`_
 
-After your configuration is ready, you can run :samp:`./manage.py syncdb` and 
+Filling up the database
+-----------------------
+
+After your configuration is ready, you can run 
 :samp:`./manage.py migrate` to create database structure. Now you should be
 able to create translation projects using admin interface.
 
 In case you want to run installation non interactively, you can use 
-:samp:`./manage.py syncdb --noinput` and then create admin user using 
+:samp:`./manage.py migrate --noinput` and then create admin user using 
 :djadmin:`createadmin` command.
 
 You should also login to admin interface (on ``/admin/`` URL) and adjust
-default site name to match your domain.
+default site name to match your domain by clicking on :guilabel:`Sites` and there
+changing the :samp:`example.com` record to match your real domain name.
+
+Once you are done, you should also check :guilabel:`Performance report` in the
+admin interface which will give you hints for non optimal configuration on your
+site.
 
 .. note::
 
@@ -320,7 +414,7 @@ environment), for example setup for MySQL:
         }
     }
 
-.. seealso:: :ref:`installation`, `Django's databases <https://docs.djangoproject.com/en/1.6/ref/databases/>`_
+.. seealso:: :ref:`installation`, `Django's databases <https://docs.djangoproject.com/en/1.7/ref/databases/>`_
 
 .. _production-cache:
 
@@ -339,7 +433,7 @@ variable, for example:
         }
     }
 
-.. seealso:: :ref:`production-cache-avatar`, `Django’s cache framework <https://docs.djangoproject.com/en/1.6/topics/cache/>`_
+.. seealso:: :ref:`production-cache-avatar`, `Django’s cache framework <https://docs.djangoproject.com/en/1.7/topics/cache/>`_
 
 .. _production-cache-avatar:
 
@@ -366,7 +460,7 @@ recommended to use separate, file backed cache for this purpose:
             },
         }
 
-.. seealso:: :setting:`ENABLE_AVATARS`, :ref:`production-cache`, `Django’s cache framework <https://docs.djangoproject.com/en/1.6/topics/cache/>`_
+.. seealso:: :setting:`ENABLE_AVATARS`, :ref:`production-cache`, `Django’s cache framework <https://docs.djangoproject.com/en/1.7/topics/cache/>`_
 
 .. _production-email:
 
@@ -387,8 +481,8 @@ have correct sender address, please configure ``SERVER_EMAIL`` and
     `DEFAULT_FROM_EMAIL documentation`_,
     `SERVER_EMAIL documentation`_
 
-.. _DEFAULT_FROM_EMAIL documentation: https://docs.djangoproject.com/en/1.6/ref/settings/#default-from-email
-.. _SERVER_EMAIL documentation: https://docs.djangoproject.com/en/1.6/ref/settings/#server-email
+.. _DEFAULT_FROM_EMAIL documentation: https://docs.djangoproject.com/en/1.7/ref/settings/#default-from-email
+.. _SERVER_EMAIL documentation: https://docs.djangoproject.com/en/1.7/ref/settings/#server-email
 
 
 .. _production-hosts:
@@ -412,16 +506,16 @@ you install `pyLibavatar`_, you will get proper support for federated avatars.
 .. _pyLibavatar: https://pypi.python.org/pypi/pyLibravatar
 
 
-.. _production-pyicu:
+.. _production-pyuca:
 
-PyICU library
+pyuca library
 +++++++++++++
 
-`PyICU`_ library is optionally used by Weblate to sort Unicode strings. This
+`pyuca`_ library is optionally used by Weblate to sort Unicode strings. This
 way language names are properly sorted even in non-ASCII languages like
 Japanese, Chinese or Arabic or for languages with accented letters.
 
-.. _PyICU: https://pypi.python.org/pypi/PyICU
+.. _pyuca: https://github.com/jtauber/pyuca
 
 .. _production-secret:
 
@@ -452,6 +546,10 @@ configured your web server to serve them. Recommended setup is described in the
 
 Home directory
 ++++++++++++++
+
+.. versionchanged:: 2.1
+   This is no longer required, Weblate now stores all it's data in
+   :setting:`DATA_DIR`.
 
 The home directory for user which is running Weblate should be existing and
 writable by this user. This is especially needed if you want to use SSH to
@@ -493,7 +591,7 @@ configure it using following snippet:
         )),
     )
 
-.. seealso:: `Django documentation on template loading <https://docs.djangoproject.com/en/1.6/ref/templates/api/#django.template.loaders.cached.Loader>`_
+.. seealso:: `Django documentation on template loading <https://docs.djangoproject.com/en/1.7/ref/templates/api/#django.template.loaders.cached.Loader>`_
 
 .. _server:
 
@@ -525,7 +623,7 @@ use that for following paths:
 Additionally you should setup rewrite rule to serve :file:`media/favicon.ico`
 as :file:`favicon.ico`.
 
-.. seealso:: https://docs.djangoproject.com/en/1.6/howto/deployment/
+.. seealso:: https://docs.djangoproject.com/en/1.7/howto/deployment/
 
 Sample configuration for Lighttpd
 +++++++++++++++++++++++++++++++++
@@ -606,6 +704,192 @@ You should also adjust some settings to match your environment, namely:
 * :ref:`production-site`
 * :ref:`production-email`
 
+.. _openshift:
+
+Weblate on OpenShift
+--------------------
+
+This repository contains a configuration for the OpenShift platform as a
+service product, which facilitates easy installation of Weblate on OpenShift
+Online (https://www.openshift.com/), OpenShift Enterprise
+(https://www.openshift.com/products/enterprise) and OpenShift Origin
+(https://www.openshift.com/products/origin).
+
+Prerequisites
++++++++++++++
+
+1. OpenShift Account
+
+   You need an account for OpenShift Online (https://www.openshift.com/) or
+   another OpenShift installation you have access to.
+
+   You can register a free account on OpenShift Online, which allows you to
+   host up to 3 applications free of charge.
+
+2. OpenShift Client Tools
+
+   In order to follow the examples given in this documentation you need to have
+   the OpenShift Client Tools (RHC) installed:
+   https://developers.openshift.com/en/managing-client-tools.html
+
+   While there are other possibilities to create and configure OpenShift
+   applications, this documentation is based on the OpenShift Client Tools
+   (RHC) because they provide a consistent interface for all described
+   operations.
+
+Installation
+++++++++++++
+
+You can install Weblate on OpenShift directly from Weblate's github repository
+with the following command:
+
+.. parsed-literal::
+
+    rhc -aweblate app create -t python-2.7 --from-code \https://github.com/nijel/weblate.git#weblate-|version| --no-git
+
+The ``-a`` option defines the name of your weblate installation, ``weblate`` in
+this instance. You are free to specify a different name.  The identifier right
+of the ``#`` sign identifies the version of Weblate to install.  For a list of
+available versions see here: https://github.com/nijel/weblate/tags. Please note
+that only version 2.0 and newer can be installed on OpenShift, as older
+versions don't include the necessary configuration files. The ``--no-git``
+option skips the creation of a local git repository.
+
+Default Configuration
++++++++++++++++++++++
+
+After installation on OpenShift Weblate is ready to use and preconfigured as follows:
+
+* SQLite embedded database (DATABASES)
+* Random admin password
+* Random Django secret key (SECRET_KEY)
+* Indexing offloading if the cron cartridge is installed (OFFLOAD_INDEXING)
+* Committing of pending changes if the cron cartridge is installed (commit_pending)
+* Weblate machine translations for suggestions bases on previous translations (MACHINE_TRANSLATION_SERVICES)
+* Source language for machine translations set to "en-us" (SOURCE_LANGUAGE)
+* Weblate directories (STATIC_ROOT, DATA_DIR, TTF_PATH, Avatar cache) set according to OpenShift requirements/conventions
+* Django site name and ALLOWED_HOSTS set to DNS name of your OpenShift application
+* Email sender addresses set to no-reply@<OPENSHIFT_CLOUD_DOMAIN>, where <OPENSHIFT_CLOUD_DOMAIN> is the domain OpenShift runs under. In case of OpenShift Online it's rhcloud.com.
+
+.. seealso:: :ref:`customize_config`
+
+Retrieve Admin Password
+~~~~~~~~~~~~~~~~~~~~~~~
+
+You can retrieve the generated admin password with the following command:
+
+.. code-block:: sh
+
+    rhc -aweblate ssh credentials
+
+Indexing Offloading
+~~~~~~~~~~~~~~~~~~~
+
+To enable the preconfigured indexing offloading you need to add the cron cartridge to your application and restart it:
+
+.. code-block:: sh
+
+    rhc -aweblate add-cartridge cron
+    rhc -aweblate app stop
+    rhc -aweblate app start
+
+The fulltext search index will then be updated every 5 minutes.
+Restarting with ``rhc restart`` instead will not enable indexing offloading in Weblate.
+You can verify that indexing offloading is indeed enabled by visiting the URL ``/admin/performance/`` of your application.
+
+Pending Changes
+~~~~~~~~~~~~~~~
+
+Weblate's OpenShift configuration contains a cron job which periodically commits pending changes older than a certain age (24h by default).
+To enable the cron job you need to add the cron cartridge and restart Weblate as described in the previous section. You can change the age
+parameter by setting the environment variable WEBLATE_PENDING_AGE to the desired number of hours, e.g.:
+
+.. code-block:: sh
+
+    rhc -aweblate env set WEBLATE_PENDING_AGE=48
+
+.. _customize_config:
+
+Customize Weblate Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can customize the configuration of your Weblate installation on OpenShift through environment variables.
+Override any of Weblate's setting documented under :ref:`config` using ``rhc env set`` by prepending the settings name with ``WEBLATE_``.
+For example override the ``ADMINS`` setting like this:
+
+.. code-block:: sh
+
+    rhc -aweblate env set WEBLATE_ADMINS='(("John Doe", "jdoe@example.org"),)'
+
+New settings will only take effect after restarting Weblate:
+
+.. code-block:: sh
+
+    rhc -aweblate app stop
+    rhc -aweblate app start
+
+Restarting using ``rhc -aweblate app restart`` does not work. For security reasons only constant expressions are allowed as values.
+With the exception of environment variables which can be referenced using ``${ENV_VAR}``. For example:
+
+.. code-block:: sh
+
+    rhc -aweblate env set WEBLATE_PRE_COMMIT_SCRIPTS='("${OPENSHIFT_DATA_DIR}/examples/hook-generate-mo",)'
+
+You can check the effective settings Weblate is using by running:
+
+.. code-block:: sh
+
+    rhc -aweblate ssh settings
+
+This will also print syntax errors in your expressions.
+To reset a setting to its preconfigured value just delete the corresponding environment variable:
+
+.. code-block:: sh
+
+   rhc -aweblate env unset WEBLATE_ADMINS
+
+.. seealso:: :ref:`config`
+
+Updating
+++++++++
+
+It is recommended that you try updates on a clone of your Weblate installation before running the actual update.
+To create such a clone run:
+
+.. code-block:: sh
+
+    rhc -aweblate2 app create --from-app weblate
+
+Visit the newly given URL with a browser and wait for the install/update page to disappear.
+
+You can update your Weblate installation on OpenShift directly from Weblate's github repository by executing:
+
+.. parsed-literal::
+
+    rhc -aweblate2 ssh update \https://github.com/nijel/weblate.git#weblate-|version|
+
+The identifier right of the ``#`` sign identifies the version of Weblate to install.
+For a list of available versions see here: https://github.com/nijel/weblate/tags.
+Please note that the update process will not work if you modified the git repository of you weblate installation.
+You can force an update by specifying the ``--force`` option to the update script. However any changes you made to the
+git repository of your installation will be discarded:
+
+.. parsed-literal::
+
+   rhc -aweblate2 ssh update --force \https://github.com/nijel/weblate.git#weblate-|version|
+
+The ``--force`` option is also needed when downgrading to an older version.
+Please note that only version 2.0 and newer can be installed on OpenShift,
+as older versions don't include the necessary configuration files.
+
+The update script takes care of the following update steps as described under :ref:`generic-upgrade-instructions`.
+
+* Install any new requirements
+* manage.py migrate
+* manage.py setupgroups --move
+* manage.py setuplang
+* manage.py rebuild_index --all
+
 Migrating Weblate to another server
 -----------------------------------
 
@@ -621,17 +905,17 @@ the database. The most straightforward one is to dump the database on one
 server and import it on the new one. Alternatively you can use replication in
 case your database supports it.
 
-Migrating Git repositories
+Migrating VCS repositories
 +++++++++++++++++++++++++++
 
-The Git repositories stored under :setting:`GIT_ROOT` need to be migrated as
+The VCS repositories stored under :setting:`DATA_DIR` need to be migrated as
 well. You can simply copy them or use :command:`rsync` to do the migration
 more effectively.
 
 Migrating fulltext index
 ++++++++++++++++++++++++
 
-For the fulltext index (stored in :setting:`WHOOSH_INDEX`) it is better not to
+For the fulltext index (stored in :setting:`DATA_DIR`) it is better not to
 migrate it, but rather to generate fresh one using :djadmin:`rebuild_index`.
 
 Other notes

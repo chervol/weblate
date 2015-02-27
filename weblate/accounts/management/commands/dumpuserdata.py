@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -25,6 +25,7 @@ import json
 
 class Command(BaseCommand):
     help = 'dumps user data to JSON file'
+    args = '<json-file>'
 
     def handle(self, *args, **options):
         '''
@@ -41,7 +42,11 @@ class Command(BaseCommand):
             'suggested',
         ) + Profile.SUBSCRIPTION_FIELDS
 
-        profiles = Profile.objects.select_related('user', 'subscriptions')
+        profiles = Profile.objects.select_related(
+            'user'
+        ).prefetch_related(
+            'subscriptions', 'languages', 'secondary_languages'
+        )
 
         for profile in profiles.iterator():
             if not profile.user.is_active:

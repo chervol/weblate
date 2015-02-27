@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -27,5 +27,4 @@ class Command(WeblateCommand):
     def handle(self, *args, **options):
         for subproject in self.get_subprojects(*args, **options):
             if not subproject.locked:
-                subproject.locked = True
-                subproject.save()
+                subproject.do_lock(None)

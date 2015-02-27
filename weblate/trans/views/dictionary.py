@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -285,8 +285,8 @@ def show_dictionary(request, project, lang):
     prj = get_project(request, project)
     lang = get_object_or_404(Language, code=lang)
 
-    if (request.method == 'POST'
-            and request.user.has_perm('trans.add_dictionary')):
+    if (request.method == 'POST' and
+            request.user.has_perm('trans.add_dictionary')):
         form = WordForm(request.POST)
         if form.is_valid():
             Dictionary.objects.create(

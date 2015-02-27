@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -21,10 +21,9 @@
 # For some reasons, this fails in PyLint sometimes...
 # pylint: disable=E0611,F0401
 from distutils.version import LooseVersion
-from weblate.trans.vcs import GitRepository
+from weblate.trans.vcs import GitRepository, HgRepository
 import importlib
 import sys
-import django
 
 
 def get_version_module(module, name, url, optional=False):
@@ -53,15 +52,15 @@ def get_optional_versions():
     '''
     result = []
 
-    name = 'ICU'
-    url = 'https://pypi.python.org/pypi/PyICU'
-    mod = get_version_module('icu', name, url, True)
+    name = 'pyuca'
+    url = 'https://github.com/jtauber/pyuca'
+    mod = get_version_module('pyuca', name, url, True)
     if mod is not None:
         result.append((
             name,
             url,
-            mod.VERSION,
-            '1.0',
+            'N/A',
+            None,
         ))
 
     name = 'pyLibravatar'
@@ -72,7 +71,15 @@ def get_optional_versions():
             name,
             url,
             'N/A',
-            '',
+            None,
+        ))
+
+    if HgRepository.is_supported():
+        result.append((
+            'Mercurial',
+            'http://mercurial.selenic.com/',
+            HgRepository.get_version(),
+            '2.8',
         ))
 
     return result
@@ -98,7 +105,7 @@ def get_versions():
         name,
         url,
         mod.get_version(),
-        '1.6',
+        '1.7',
     ))
 
     name = 'python-social-auth'
@@ -118,7 +125,7 @@ def get_versions():
         name,
         url,
         mod.sver,
-        '1.9.0',
+        '1.10.0',
     ))
 
     name = 'Whoosh'
@@ -131,23 +138,15 @@ def get_versions():
         '2.5',
     ))
 
-    result.append((
-        'Git',
-        'http://git-scm.com/',
-        GitRepository.get_version(),
-        '1.6',
-    ))
-
-    name = 'South'
-    url = 'http://south.aeracode.org/'
-    if django.VERSION < (1, 7, 0):
-        mod = get_version_module('south', name, url)
+    try:
         result.append((
-            name,
-            url,
-            mod.__version__,
-            '1.0',
+            'Git',
+            'http://git-scm.com/',
+            GitRepository.get_version(),
+            '1.6',
         ))
+    except OSError:
+        raise Exception('Failed to run git, please install it.')
 
     name = 'Pillow (PIL)'
     url = 'http://python-imaging.github.io/'
@@ -197,7 +196,7 @@ def check_version(name, url, version, expected):
     Check for single module version.
     '''
     if expected is None:
-        return
+        return False
     looseversion = LooseVersion(version)
     if looseversion < expected:
         print '*** %s <%s> is too old! ***' % (name, url)
@@ -211,7 +210,7 @@ def check_requirements():
     '''
     Performs check on requirements and raises an exception on error.
     '''
-    versions = get_versions()
+    versions = get_versions() + get_optional_versions()
     failure = False
 
     for version in versions:

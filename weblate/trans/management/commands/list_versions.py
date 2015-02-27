@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -29,4 +29,4 @@ class Command(BaseCommand):
         '''
         Prints versions of dependencies.
         '''
-        print get_versions_string()
+        self.stdout.write(get_versions_string())

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -19,11 +19,16 @@
 #
 
 import os
+import re
+from copy import _EmptyClass
 import logging
+import django.utils.translation.trans_real as django_trans
 from weblate.requirements import (
     check_requirements, get_versions, get_optional_versions
 )
 from weblate.trans.vcs import GitRepository, RepositoryException
+from weblate.trans.data import check_data_writable
+from weblate.trans.ssh import create_ssh_wrapper
 
 logger = logging.getLogger('weblate')
 
@@ -43,7 +48,7 @@ def is_running_git():
     return os.path.exists(os.path.join(get_root_dir(), '.git', 'config'))
 
 # Weblate version
-VERSION = '2.0'
+VERSION = '2.3'
 
 # Version string without suffix
 VERSION_BASE = VERSION
@@ -70,7 +75,7 @@ if RUNNING_GIT:
         # Mark version as devel if it is
         if not GIT_RELEASE:
             VERSION += '-dev'
-    except RepositoryException:
+    except (RepositoryException, OSError):
         # Import failed or git has troubles reading
         # repo (eg. swallow clone)
         RUNNING_GIT = False
@@ -112,3 +117,36 @@ def get_versions_string():
 # Check for requirements
 
 check_requirements()
+check_data_writable()
+create_ssh_wrapper()
+
+# Monkey patch locales, workaround for
+# https://code.djangoproject.com/ticket/24063
+django_trans.language_code_re = re.compile(
+    r'^[a-z]{1,8}(?:-[a-z0-9]{1,8})*(?:@[a-z0-9]{1,20})?$',
+    re.IGNORECASE
+)
+
+
+class DjangoTranslation(django_trans.DjangoTranslation):
+    """
+    Unshared _info and _catalog to avoid Django messing up
+    locale variants.
+
+    This will not be needed in Django 1.8.
+    """
+    def __copy__(self):
+        """
+        Simplified version of copy._copy_inst extended for copying
+        _info and _catalog.
+        """
+        result = _EmptyClass()
+        result.__class__ = self.__class__
+        state = self.__dict__
+        state['_info'] = self._info.copy()
+        state['_catalog'] = self._catalog.copy()
+        result.__dict__.update(state)
+        return result
+
+
+django_trans.DjangoTranslation = DjangoTranslation

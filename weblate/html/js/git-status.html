@@ -1,9 +1,8 @@
 {% load i18n %}
-{% load url from future %}
 {% with object.git_needs_commit as needs_commit %}
 
 <div class="row">
-<div class="col-md-6">
+<div class="col-lg-6">
 
 <div class="panel panel-primary">
 <div class="panel-heading"><h4 class="panel-title">{% trans "Repository status" %}</h4></div>
@@ -47,21 +46,17 @@
         {% if object.subproject_set %}
         {% for sp in object.subproject_set.all %}
         <h4>{{ sp }}</h3>
-        <pre>
-{{ sp.repository.status }}
-        </pre>
+        <pre>{{ sp.repository.status }}</pre>
         {% endfor %}
         {% else %}
-        <pre>
-{{ object.repository.status }}
-        </pre>
+        <pre>{{ object.repository.status }}</pre>
         {% endif %}
       </div>
 </div>
 
 </div>
 
-<div class="col-md-6">
+<div class="col-lg-6">
 {% if perms.trans.commit_translation or perms.trans.update_translation %}
 <div class="panel panel-primary">
 <div class="panel-heading"><h4 class="panel-title">{% trans "Repository tools" %}</h4></div>

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © 2012 - 2014 Michal Čihař <michal@cihar.com>
+# Copyright © 2012 - 2015 Michal Čihař <michal@cihar.com>
 #
 # This file is part of Weblate <http://weblate.org/>
 #
@@ -29,15 +29,18 @@ from django.contrib.auth.models import Permission, User
 from django.core.exceptions import ValidationError
 import shutil
 import os
-from weblate.trans.models import Project, SubProject, Unit, WhiteboardMessage
+from weblate.trans.models import (
+    Project, SubProject, Unit, WhiteboardMessage, Check, get_related_units,
+)
 from weblate.trans.models.source import Source
 from weblate import appsettings
 from weblate.trans.tests.utils import get_test_file
-from weblate.trans.vcs import GitRepository
+from weblate.trans.vcs import GitRepository, HgRepository
 
 REPOWEB_URL = \
     'https://github.com/nijel/weblate-test/blob/master/%(file)s#L%(line)s'
 GIT_URL = 'git://github.com/nijel/weblate-test.git'
+HG_URL = 'https://nijel@bitbucket.org/nijel/weblate-test'
 
 
 class RepoTestCase(TestCase):
@@ -45,39 +48,65 @@ class RepoTestCase(TestCase):
     Generic class for tests working with repositories.
     """
     def setUp(self):
-        if 'test-repos' in settings.GIT_ROOT:
-            test_dir = os.path.join(settings.GIT_ROOT, 'test')
-            if os.path.exists(test_dir):
-                shutil.rmtree(test_dir)
-
         # Path where to clone remote repo for tests
-        self.base_repo_path = os.path.join(
-            settings.GIT_ROOT,
+        self.git_base_repo_path = os.path.join(
+            settings.DATA_DIR,
             'test-base-repo.git'
         )
         # Repository on which tests will be performed
-        self.repo_path = os.path.join(
-            settings.GIT_ROOT,
+        self.git_repo_path = os.path.join(
+            settings.DATA_DIR,
             'test-repo.git'
         )
 
+        # Path where to clone remote repo for tests
+        self.hg_base_repo_path = os.path.join(
+            settings.DATA_DIR,
+            'test-base-repo.hg'
+        )
+        # Repository on which tests will be performed
+        self.hg_repo_path = os.path.join(
+            settings.DATA_DIR,
+            'test-repo.hg'
+        )
+
         # Clone repo for testing
-        if not os.path.exists(self.base_repo_path):
+        if not os.path.exists(self.git_base_repo_path):
+            print(
+                'Cloning test repository to {0}...'.format(
+                    self.git_base_repo_path
+                )
+            )
             GitRepository.clone(
                 GIT_URL,
-                self.base_repo_path,
+                self.git_base_repo_path,
                 bare=True
             )
 
         # Remove possibly existing directory
-        if os.path.exists(self.repo_path):
-            shutil.rmtree(self.repo_path)
+        if os.path.exists(self.git_repo_path):
+            shutil.rmtree(self.git_repo_path)
 
         # Create repository copy for the test
-        shutil.copytree(self.base_repo_path, self.repo_path)
+        shutil.copytree(self.git_base_repo_path, self.git_repo_path)
+
+        # Clone repo for testing
+        if not os.path.exists(self.hg_base_repo_path):
+            HgRepository.clone(
+                HG_URL,
+                self.hg_base_repo_path,
+                bare=True
+            )
+
+        # Remove possibly existing directory
+        if os.path.exists(self.hg_repo_path):
+            shutil.rmtree(self.hg_repo_path)
+
+        # Create repository copy for the test
+        shutil.copytree(self.hg_base_repo_path, self.hg_repo_path)
 
         # Remove possibly existing project directory
-        test_repo_path = os.path.join(settings.GIT_ROOT, 'test')
+        test_repo_path = os.path.join(settings.DATA_DIR, 'vcs', 'test')
         if os.path.exists(test_repo_path):
             shutil.rmtree(test_repo_path)
 
@@ -93,23 +122,36 @@ class RepoTestCase(TestCase):
         self.addCleanup(shutil.rmtree, project.get_path(), True)
         return project
 
-    def _create_subproject(self, file_format, mask, template='', new_base=''):
+    def _create_subproject(self, file_format, mask, template='',
+                           new_base='', vcs='git'):
         """
         Creates real test subproject.
         """
         project = self.create_project()
+
+        if vcs == 'mercurial':
+            branch = 'default'
+            repo = self.hg_repo_path
+            push = self.hg_repo_path
+        else:
+            branch = 'master'
+            repo = self.git_repo_path
+            push = self.git_repo_path
+
         return SubProject.objects.create(
             name='Test',
             slug='test',
             project=project,
-            repo=self.repo_path,
-            push=self.repo_path,
+            repo=repo,
+            push=push,
+            branch=branch,
             filemask=mask,
             template=template,
             file_format=file_format,
             repoweb=REPOWEB_URL,
             save_history=True,
             new_base=new_base,
+            vcs=vcs
         )
 
     def create_subproject(self):
@@ -125,6 +167,13 @@ class RepoTestCase(TestCase):
         return self._create_subproject(
             'po',
             'po/*.po',
+        )
+
+    def create_po_mercurial(self):
+        return self._create_subproject(
+            'po',
+            'po/*.po',
+            vcs='mercurial'
         )
 
     def create_po_new_base(self):
@@ -170,6 +219,13 @@ class RepoTestCase(TestCase):
         return self._create_subproject(
             'json',
             'json/*.json',
+        )
+
+    def create_json_mono(self):
+        return self._create_subproject(
+            'json',
+            'json-mono/*.json',
+            'json-mono/en.json',
         )
 
     def create_java(self):
@@ -233,8 +289,8 @@ class ProjectTest(RepoTestCase):
     def test_wrong_path(self):
         project = self.create_project()
 
-        backup = appsettings.GIT_ROOT
-        appsettings.GIT_ROOT = '/weblate-nonexisting-path'
+        backup = appsettings.DATA_DIR
+        appsettings.DATA_DIR = '/weblate-nonexisting-path'
 
         # Invalidate cache, pylint: disable=W0212
         project._dir_path = None
@@ -245,7 +301,7 @@ class ProjectTest(RepoTestCase):
             project.full_clean
         )
 
-        appsettings.GIT_ROOT = backup
+        appsettings.DATA_DIR = backup
 
     def test_acl(self):
         """
@@ -392,25 +448,33 @@ class SubProjectTest(RepoTestCase):
         project = self.create_po()
         self.verify_subproject(project, 3, 'cs', 4)
 
+    def test_create_po_mercurial(self):
+        project = self.create_po_mercurial()
+        self.verify_subproject(project, 3, 'cs', 4)
+
     def test_create_po_link(self):
         project = self.create_po_link()
         self.verify_subproject(project, 3, 'cs', 4)
 
     def test_create_po_mono(self):
         project = self.create_po_mono()
-        self.verify_subproject(project, 3, 'cs', 4)
+        self.verify_subproject(project, 4, 'cs', 4)
 
     def test_create_android(self):
         project = self.create_android()
-        self.verify_subproject(project, 1, 'cs', 4)
+        self.verify_subproject(project, 2, 'cs', 4)
 
     def test_create_json(self):
         project = self.create_json()
         self.verify_subproject(project, 1, 'cs', 4)
 
+    def test_create_json_mono(self):
+        project = self.create_json_mono()
+        self.verify_subproject(project, 2, 'cs', 4)
+
     def test_create_java(self):
         project = self.create_java()
-        self.verify_subproject(project, 2, 'cs', 4)
+        self.verify_subproject(project, 3, 'cs', 4)
 
     def test_create_xliff(self):
         project = self.create_xliff()
@@ -598,6 +662,18 @@ class SubProjectTest(RepoTestCase):
         # With correct format it should validate
         subproject.full_clean()
 
+    def test_change_to_mono(self):
+        """Test swtiching to monolingual format on the fly."""
+        component = self._create_subproject(
+            'po',
+            'po-mono/*.po',
+        )
+        self.assertEqual(component.translation_set.count(), 4)
+        component.file_format = 'po-mono'
+        component.template = 'po-mono/en.po'
+        component.save()
+        self.assertEqual(component.translation_set.count(), 4)
+
 
 class TranslationTest(RepoTestCase):
     """
@@ -677,3 +753,15 @@ class SourceTest(RepoTestCase):
         source.save()
         unit2 = Unit.objects.get(pk=unit.pk)
         self.assertEqual(unit2.priority, 200)
+
+    def test_check_flags(self):
+        """
+        Setting of Source check_flags changes checks for related units.
+        """
+        self.assertEquals(Check.objects.count(), 1)
+        check = Check.objects.all()[0]
+        unit = get_related_units(check)[0]
+        source = unit.source_info
+        source.check_flags = 'ignore-{0}'.format(check.check)
+        source.save()
+        self.assertEquals(Check.objects.count(), 0)
