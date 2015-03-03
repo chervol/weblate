@@ -93,7 +93,8 @@ class Command(BaseCommand):
         Returns file name from patch based on filemask.
         """
         matches = self.match_regexp.match(path)
-        return '/'.join(matches.groups()) #matches.group(1)
+        name = path.split('LC_MESSAGES/')[1][:-3]
+        return name   #'/'.join(matches.groups()) #matches.group(1)
 
     @property
     def match_regexp(self):
@@ -168,6 +169,8 @@ class Command(BaseCommand):
         self.file_format = options['file_format']
         self.name_template = options['name_template']
         self.base_file_template = options['base_file_template']
+        
+        self.logger.info('mask: '+self.base_file_template)
 
         # Try to get project
         try:
@@ -212,6 +215,7 @@ class Command(BaseCommand):
                 Q(name=name) | Q(slug=slug),
                 project=project
             )
+
             if subprojects.exists():
                 self.logger.warn(
                     'Component %s already exists, skipping',
@@ -228,7 +232,7 @@ class Command(BaseCommand):
                 branch=branch,
                 template=template,
                 file_format=self.file_format,
-                filemask=self.filemask.replace('**/**', match).replace('**', match)
+                filemask=self.filemask.split('LC_MESSAGES')[0]+'LC_MESSAGES/'+match+'.po'
             )
 
     def import_initial(self, project, repo, branch):
